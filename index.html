@@ -97,6 +97,21 @@
       font-size: 17px; margin-top: 12px; padding: 14px;
     }
 
+    /* 역할 선택 버튼 전용 스타일 */
+    .role-select-box {
+      display: flex; gap: 10px; margin-top: 10px;
+    }
+
+    .btn-role {
+      flex: 1; padding: 14px; font-size: 16px; font-weight: bold;
+      border: 2px solid #8b5a2b; border-radius: 8px; background: #23120d;
+      color: #ffd700; cursor: pointer; transition: 0.2s;
+    }
+
+    .btn-role.selected {
+      background: var(--gold-color); color: #000; border-color: #fff;
+    }
+
     .card-grid { display: flex; justify-content: center; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
     .card {
       width: 72px; height: 102px; background: #3a2218; border: 2px solid #8b5a2b;
@@ -168,10 +183,10 @@
   </div>
 
   <div class="content-area">
-    <!-- 0. 시작 화면 (역할 선택) -->
+    <!-- 0. 시작 화면 (학생 이름 입력 제거 ➔ 소속 및 A/B 선택) -->
     <div class="screen active" id="screenStart">
       <h1 style="color: var(--gold-color); margin-bottom: 5px; font-size: 26px;">🗝️ 짝 협력 방탈출 게임</h1>
-      <p style="color: #ffd700; margin-bottom: 15px; font-size: 14px; font-weight: bold;">짝과 대화하며 함께 풀어야 탈출할 수 있습니다!</p>
+      <p style="color: #ffd700; margin-bottom: 15px; font-size: 14px; font-weight: bold;">소속 모둠을 선택하고 짝 역할을 정해 입장하세요!</p>
       
       <select id="selectSchool" onchange="onSchoolChange()">
         <option value="">학교 선택</option>
@@ -181,32 +196,29 @@
         <option value="">반 선택</option>
       </select>
 
-      <select id="selectGroupDropdown" style="display:none;">
+      <select id="selectGroupDropdown" disabled>
         <option value="">모둠 선택</option>
       </select>
-      
-      <input type="text" id="inputGroupText" placeholder="모둠 입력 (예: 1모둠)">
-      <input type="text" id="inputName" placeholder="이름 입력 (예: 홍길동)">
 
-      <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; margin-top: 10px;">
-        <p style="margin: 0 0 5px 0; color: #ffd700; font-weight: bold;">짝 역할 분담 선택:</p>
-        <select id="selectRole">
-          <option value="A">학생 A (열쇠지기)</option>
-          <option value="B">학생 B (암호해독가)</option>
-        </select>
+      <div style="background: rgba(0,0,0,0.5); padding: 12px; border-radius: 8px; margin-top: 10px;">
+        <p style="margin: 0 0 8px 0; color: #ffd700; font-weight: bold; font-size: 15px;">나의 짝 역할 선택:</p>
+        <div class="role-select-box">
+          <button type="button" class="btn-role selected" id="btnRoleA" onclick="selectRole('A')">학생 A (열쇠지기)</button>
+          <button type="button" class="btn-role" id="btnRoleB" onclick="selectRole('B')">학생 B (암호해독가)</button>
+        </div>
       </div>
       
       <button class="btn-primary" onclick="startGame()">방탈출 시작하기</button>
     </div>
 
-    <!-- 1번 문: 다빈치 코드 (역할별 정보 분리) -->
+    <!-- 1번 문: 다빈치 코드 -->
     <div class="screen" id="screenDoor1">
       <div id="roleBadge1" class="role-badge"></div>
       <div class="guide-box">
         <div class="guide-title">🔓 1번 문: 다빈치 코드</div>
         <div class="guide-desc">
           • <strong>짝 협력 미션:</strong> 두 사람의 카드는 연결되어 있습니다!<br>
-          • <span class="guide-highlight">학생 A는 흰색 카드</span>를, <span class="guide-highlight">학생 B는 검은색 카드</span>의 정답을 서로 알아낸 뒤 동시에 입력해야 문이 열립니다.
+          • <span class="guide-highlight">학생 A는 흰색 카드</span>를, <span class="guide-highlight">학생 B는 검은색 카드</span>의 정답을 서로 알아낸 뒤 입력해야 문이 열립니다.
         </div>
       </div>
       <div class="card-grid">
@@ -219,7 +231,7 @@
       <button class="btn-primary" onclick="checkDoor1()">짝과 함께 문 열기 도전</button>
     </div>
 
-    <!-- 2번 문: 하트 열쇠 (A와 B 카드 나눔) -->
+    <!-- 2번 문: 하트 열쇠 -->
     <div class="screen" id="screenDoor2">
       <div id="roleBadge2" class="role-badge"></div>
       <div class="guide-box">
@@ -232,7 +244,7 @@
       <div class="card-grid" id="heartCardGrid"></div>
     </div>
 
-    <!-- 3번 문: 스컬 (A는 카드 뽑기, B는 실시간 확률 분석가) -->
+    <!-- 3번 문: 스컬 -->
     <div class="screen" id="screenDoor3">
       <div id="roleBadge3" class="role-badge"></div>
       <div class="guide-box">
@@ -243,7 +255,7 @@
       <div id="skullAnalystBox" style="display:none; background:rgba(0,0,0,0.8); border:1px solid #ffd700; padding:15px; border-radius:10px; font-size:16px;"></div>
     </div>
 
-    <!-- 4번 문: 변형 차오차오 (비대칭 주사위) -->
+    <!-- 4번 문: 변형 차오차오 -->
     <div class="screen" id="screenDoor4">
       <div id="roleBadge4" class="role-badge"></div>
       <div class="guide-box">
@@ -415,7 +427,6 @@
     const schoolKey = document.getElementById('selectSchool').value;
     const classKey = document.getElementById('selectClass').value;
     const groupDropdown = document.getElementById('selectGroupDropdown');
-    const groupInput = document.getElementById('inputGroupText');
 
     groupDropdown.innerHTML = '<option value="">모둠 선택</option>';
     if (schoolKey && classKey && schoolsData[schoolKey].classes[classKey].groups) {
@@ -426,13 +437,17 @@
         hasGroups = true;
       }
       if (hasGroups) {
-        groupDropdown.style.display = 'block';
-        groupInput.style.display = 'none';
+        groupDropdown.disabled = false;
         return;
       }
     }
-    groupDropdown.style.display = 'none';
-    groupInput.style.display = 'block';
+    groupDropdown.disabled = true;
+  }
+
+  function selectRole(role) {
+    gameState.role = role;
+    document.getElementById('btnRoleA').classList.toggle('selected', role === 'A');
+    document.getElementById('btnRoleB').classList.toggle('selected', role === 'B');
   }
 
   function playDoorOpenAnimation(callback) {
@@ -503,19 +518,18 @@
     const sKey = document.getElementById('selectSchool').value;
     const cKey = document.getElementById('selectClass').value;
     const groupDropdown = document.getElementById('selectGroupDropdown');
-    const groupInput = document.getElementById('inputGroupText');
-    const name = document.getElementById('inputName').value.trim();
 
-    gameState.role = document.getElementById('selectRole').value;
-    const group = (groupDropdown.style.display !== 'none') ? groupDropdown.value : groupInput.value.trim();
+    if (!sKey || !cKey || !groupDropdown.value) {
+      alert("학교, 반, 모둠을 모두 선택해 주세요!");
+      return;
+    }
 
-    if (!name) { alert("이름을 입력하세요!"); return; }
+    const schoolName = schoolsData[sKey].name;
+    const className = schoolsData[sKey].classes[cKey].name;
+    const group = groupDropdown.value;
 
-    const schoolName = (sKey && schoolsData[sKey]) ? schoolsData[sKey].name : "기본학교";
-    const className = (sKey && cKey && schoolsData[sKey].classes && schoolsData[sKey].classes[cKey]) ? schoolsData[sKey].classes[cKey].name : "1반";
-
-    gameState.userInfo = { schoolName, className, group: group || "1모둠", name, role: gameState.role };
-    document.getElementById('userInfoDisplay').innerText = `${schoolName} ${className} ${group||"1모둠"} [${gameState.role}] ${name}`;
+    gameState.userInfo = { schoolName, className, group, role: gameState.role };
+    document.getElementById('userInfoDisplay').innerText = `${schoolName} ${className} ${group} [학생 ${gameState.role}]`;
     document.getElementById('statusBar').style.display = 'flex';
 
     updateRoleBadges();
@@ -526,7 +540,6 @@
     });
   }
 
-  // 1번 문: 역할에 따른 입력창 락 제어
   function initDoor1RoleUI() {
     const dav1 = document.getElementById('davinci1');
     const dav2 = document.getElementById('davinci2');
@@ -558,7 +571,6 @@
     }
   }
 
-  // 2번 문: A는 3장, B는 2장 카드 분배
   function initDoor2() {
     const cardCount = gameState.role === 'A' ? 3 : 2;
     gameState.door2Cards = ['♥', 'X', 'X', '♥', 'X'].slice(0, cardCount);
@@ -598,7 +610,6 @@
     }
   }
 
-  // 3번 문: A는 카드 뽑기 / B는 실시간 확률 분석기
   function initDoor3() {
     gameState.door3Cards = ['🌸', '🌸', '🌸', '🌸', '💀', '💀'].sort(() => Math.random() - 0.5);
     gameState.door3Revealed = [];
@@ -671,7 +682,6 @@
     }
   }
 
-  // 4번 문: 비대칭 주사위
   function initDoor4() {
     const ciaoFaces = ['1', '2', '3', '4', 'X', 'X'];
     const myRoll = ciaoFaces[Math.floor(Math.random() * ciaoFaces.length)];
@@ -689,7 +699,7 @@
 
     alert("짝과 판정 확인 완료! 최종 탈출에 성공하셨습니다!");
     document.getElementById('clearSummary').innerText = 
-      `${gameState.userInfo.schoolName} ${gameState.userInfo.className} ${gameState.userInfo.group} [${gameState.userInfo.name} & 짝] 탈출 완료!`;
+      `${gameState.userInfo.schoolName} ${gameState.userInfo.className} ${gameState.userInfo.group} [학생 A & 학생 B] 탈출 완료!`;
     
     saveResultToFirebase();
     showScreen('screenClear');
@@ -850,7 +860,7 @@
       for (let key in records) {
         const r = records[key];
         list.innerHTML += `<div class="list-item" style="flex-direction:column; align-items:flex-start;">
-          <div><strong>${r.schoolName} ${r.className} ${r.group} [${r.role}] ${r.name}</strong></div>
+          <div><strong>${r.schoolName} ${r.className} ${r.group} [학생 ${r.role}]</strong></div>
           <div style="font-size:12px; color:#aaa;">남은하트: ${r.remainingHearts}개 | 전체시도: ${r.totalAttempts}회 | 완료시간: ${r.timestamp}</div>
         </div>`;
       }
