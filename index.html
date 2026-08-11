@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>확률 방탈출 게임 (2인 협력 전용)</title>
+  <style>
+    :root {
+      --bg-color: #0d0604;
+      --card-bg: rgba(30, 16, 12, 0.95);
+      --accent-color: #ff4757;
+      --gold-color: #ffd700;
+      --text-color: #ffffff;
+    }
+
+    body {
+      font-family: 'Pretendard', -apple-system, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0; padding: 0;
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; overflow: hidden;
+    }
+
+    .container {
+      width: 95%; max-width: 680px; min-height: 580px;
+      background: #100806; border: 3px solid #8b5a2b; border-radius: 16px;
+      padding: 24px; box-shadow: 0 0 40px rgba(0,0,0,0.95);
+      position: relative; text-align: center; box-sizing: border-box;
+      display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
+    }
+
+    .door-frame-layer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background-image: url('ChatGPT Image 2026년 8월 11일 오후 09_21_40.png');
+      background-size: 300% 200%; background-position: 0% 0%;
+      z-index: 90; pointer-events: none; transition: background-position 0.15s steps(1);
+    }
+
+    .frame-1 { background-position: 0% 0%; }
+    .frame-2 { background-position: 50% 0%; }
+    .frame-3 { background-position: 100% 0%; }
+    .frame-4 { background-position: 0% 100%; }
+    .frame-5 { background-position: 50% 100%; }
+    .frame-6 { background-position: 100% 100%; }
+
+    .content-area {
+      position: relative; z-index: 100;
+      background: var(--card-bg); padding: 24px; border-radius: 14px;
+      border: 2px solid #8b5a2b; box-shadow: 0 10px 30px rgba(0,0,0,0.9);
+    }
+
+    .guide-box {
+      background: rgba(0, 0, 0, 0.75); border: 1px solid #d4af37;
+      border-radius: 10px; padding: 14px 18px; margin: 10px 0 18px 0;
+      text-align: left;
+    }
+
+    .guide-title {
+      font-size: 20px; color: var(--gold-color); font-weight: bold;
+      margin-bottom: 8px; text-align: center;
+    }
+
+    .guide-desc { font-size: 15px; color: #fff8e7; line-height: 1.6; word-break: keep-all; }
+    .guide-highlight { color: #ffd700; font-weight: bold; }
+
+    .role-badge {
+      display: inline-block; padding: 4px 12px; border-radius: 12px;
+      background: #8b5a2b; color: #fff; font-weight: bold; font-size: 14px; margin-bottom: 10px;
+    }
+
+    .status-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 2px solid #5c2c1e; padding-bottom: 10px; margin-bottom: 15px;
+      font-size: 16px; color: var(--gold-color); font-weight: bold;
+    }
+
+    .hearts { font-size: 24px; color: var(--accent-color); letter-spacing: 2px; }
+
+    .admin-btn {
+      position: absolute; top: 12px; right: 12px; background: none; border: none;
+      font-size: 24px; cursor: pointer; color: var(--gold-color); z-index: 150;
+    }
+
+    .screen { display: none; flex-direction: column; justify-content: center; }
+    .screen.active { display: flex; }
+
+    input, select, button {
+      padding: 12px; margin: 6px 0; border-radius: 8px;
+      border: 1px solid #7c4a21; background: #1a0d0a; color: #fff;
+      width: 100%; box-sizing: border-box; font-size: 15px;
+    }
+
+    button.btn-primary {
+      background: linear-gradient(180deg, #ffd700 0%, #b8860b 100%);
+      color: #000; font-weight: bold; border: none; cursor: pointer;
+      font-size: 17px; margin-top: 12px; padding: 14px;
+    }
+
+    .card-grid { display: flex; justify-content: center; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
+    .card {
+      width: 72px; height: 102px; background: #3a2218; border: 2px solid #8b5a2b;
+      border-radius: 8px; display: flex; justify-content: center; align-items: center;
+      font-size: 28px; font-weight: bold; cursor: pointer; user-select: none;
+    }
+    .card.black { background: #1a0d09; color: var(--gold-color); border-color: #5c3a1d; }
+
+    .card-input {
+      width: 72px; height: 102px; font-size: 30px; font-weight: bold;
+      text-align: center; border-radius: 8px; border: 2px solid #8b5a2b;
+      box-sizing: border-box; margin: 0; padding: 0;
+    }
+    .card-input.white-input { background: #ffffff; color: #000000; border-color: #d4af37; }
+    .card-input.black-input { background: #1a0d09; color: #ffd700; border-color: #5c3a1d; }
+
+    .modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85); z-index: 200; justify-content: center; align-items: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-content {
+      background: #23120d; border: 2px solid var(--gold-color); border-radius: 16px;
+      width: 90%; max-width: 520px; padding: 20px; max-height: 85vh; overflow-y: auto; text-align: left;
+    }
+    .admin-tab { display: flex; gap: 10px; margin-bottom: 15px; }
+    .admin-tab button { padding: 8px; font-size: 14px; background: #3d2017; }
+    .admin-tab button.active { background: var(--gold-color); color: #000; font-weight: bold; }
+    .list-item { display: flex; justify-content: space-between; align-items: center; background: #140a07; padding: 8px 12px; margin: 4px 0; border-radius: 6px; font-size: 14px; }
+    .btn-sm { width: auto; padding: 4px 8px; margin: 0 2px; font-size: 12px; }
+    .btn-danger { background: #ff4757; color: white; border: none; }
+    .btn-edit { background: #eccc68; color: black; border: none; }
+  </style>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAqnBE_0A3biefkxq3xMXYLUIIq8RJB9Ws",
+      authDomain: "gen-lang-client-0258122921.firebaseapp.com",
+      databaseURL: "https://gen-lang-client-0258122921-default-rtdb.firebaseio.com",
+      projectId: "gen-lang-client-0258122921",
+      storageBucket: "gen-lang-client-0258122921.firebasestorage.app",
+      messagingSenderId: "850202732445",
+      appId: "1:850202732445:web:cc2b0bfec6d97dcfc2f174",
+      measurementId: "G-6GF232PKMC"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    window.db = db; window.dbRef = ref; window.dbSet = set;
+    window.dbPush = push; window.dbOnValue = onValue;
+    window.dbRemove = remove; window.dbUpdate = update;
+  </script>
+</head>
+<body>
+
+<div class="container">
+  <button class="admin-btn" onclick="openAdminModal()">⚙️</button>
+
+  <div class="door-frame-layer frame-1" id="doorLayer"></div>
+
+  <div class="status-bar" id="statusBar" style="display:none; z-index:101;">
+    <div id="userInfoDisplay"></div>
+    <div class="hearts" id="heartsDisplay">♥♥♥</div>
+  </div>
+
+  <div class="content-area">
+    <!-- 0. 시작 화면 (역할 선택) -->
+    <div class="screen active" id="screenStart">
+      <h1 style="color: var(--gold-color); margin-bottom: 5px; font-size: 26px;">🗝️ 짝 협력 방탈출 게임</h1>
+      <p style="color: #ffd700; margin-bottom: 15px; font-size: 14px; font-weight: bold;">짝과 대화하며 함께 풀어야 탈출할 수 있습니다!</p>
+      
+      <select id="selectSchool" onchange="onSchoolChange()">
+        <option value="">학교 선택</option>
+      </select>
+      
+      <select id="selectClass" onchange="onClassChange()" disabled>
+        <option value="">반 선택</option>
+      </select>
+
+      <select id="selectGroupDropdown" style="display:none;">
+        <option value="">모둠 선택</option>
+      </select>
+      
+      <input type="text" id="inputGroupText" placeholder="모둠 입력 (예: 1모둠)">
+      <input type="text" id="inputName" placeholder="이름 입력 (예: 홍길동)">
+
+      <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; margin-top: 10px;">
+        <p style="margin: 0 0 5px 0; color: #ffd700; font-weight: bold;">짝 역할 분담 선택:</p>
+        <select id="selectRole">
+          <option value="A">학생 A (열쇠지기)</option>
+          <option value="B">학생 B (암호해독가)</option>
+        </select>
+      </div>
+      
+      <button class="btn-primary" onclick="startGame()">방탈출 시작하기</button>
+    </div>
+
+    <!-- 1번 문: 다빈치 코드 (역할별 정보 분리) -->
+    <div class="screen" id="screenDoor1">
+      <div id="roleBadge1" class="role-badge"></div>
+      <div class="guide-box">
+        <div class="guide-title">🔓 1번 문: 다빈치 코드</div>
+        <div class="guide-desc">
+          • <strong>짝 협력 미션:</strong> 두 사람의 카드는 연결되어 있습니다!<br>
+          • <span class="guide-highlight">학생 A는 흰색 카드</span>를, <span class="guide-highlight">학생 B는 검은색 카드</span>의 정답을 서로 알아낸 뒤 동시에 입력해야 문이 열립니다.
+        </div>
+      </div>
+      <div class="card-grid">
+        <div class="card black">2</div>
+        <input type="number" id="davinci1" class="card-input white-input" placeholder="?" min="0" max="11">
+        <div class="card black">4</div>
+        <input type="number" id="davinci2" class="card-input black-input" placeholder="?" min="0" max="11">
+        <div class="card black">7</div>
+      </div>
+      <button class="btn-primary" onclick="checkDoor1()">짝과 함께 문 열기 도전</button>
+    </div>
+
+    <!-- 2번 문: 하트 열쇠 (A와 B 카드 나눔) -->
+    <div class="screen" id="screenDoor2">
+      <div id="roleBadge2" class="role-badge"></div>
+      <div class="guide-box">
+        <div class="guide-title">🔓 2번 문: 하트 열쇠 찾기</div>
+        <div class="guide-desc">
+          • <strong>카드 분배:</strong> 전체 5장 중 <span class="guide-highlight">A에게 3장, B에게 2장</span>이 나누어져 있습니다.<br>
+          • <strong>짝 협력 미션:</strong> 대화를 통해 <span class="guide-highlight">합쳐서 연속 하트(♥) 2개</span>를 찾아내야 탈출합니다! (하나라도 꽝이면 둘 다 리셋)
+        </div>
+      </div>
+      <div class="card-grid" id="heartCardGrid"></div>
+    </div>
+
+    <!-- 3번 문: 스컬 (A는 카드 뽑기, B는 실시간 확률 분석가) -->
+    <div class="screen" id="screenDoor3">
+      <div id="roleBadge3" class="role-badge"></div>
+      <div class="guide-box">
+        <div class="guide-title">🔓 3번 문: 스컬 (Skull)</div>
+        <div class="guide-desc" id="skullGuideText"></div>
+      </div>
+      <div class="card-grid" id="skullCardGrid"></div>
+      <div id="skullAnalystBox" style="display:none; background:rgba(0,0,0,0.8); border:1px solid #ffd700; padding:15px; border-radius:10px; font-size:16px;"></div>
+    </div>
+
+    <!-- 4번 문: 변형 차오차오 (비대칭 주사위) -->
+    <div class="screen" id="screenDoor4">
+      <div id="roleBadge4" class="role-badge"></div>
+      <div class="guide-box">
+        <div class="guide-title">🔓 4번 문: 변형 차오차오</div>
+        <div class="guide-desc">
+          • <strong>상황:</strong> 각자 자기 화면의 주사위 결과를 확인하고 짝에게 외치세요!<br>
+          • <strong>짝 협력 미션:</strong> 짝의 외침을 듣고 <span class="guide-highlight">상대방이 진실인지 거짓인지</span>를 서로 맞춰야 탈출 성공입니다!
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: center; gap: 15px; margin: 15px 0;">
+        <div style="background: rgba(0,0,0,0.6); padding: 12px; border-radius: 10px; border: 1px solid #d4af37; flex: 1;">
+          <div style="font-size: 15px; color: #ffd700; font-weight: bold; margin-bottom: 6px;" id="myDiceInfo">내 주사위 결과</div>
+          <div style="font-size: 24px; font-weight: bold; color: #fff;" id="myDiceResult">?</div>
+        </div>
+
+        <div style="background: rgba(0,0,0,0.6); padding: 12px; border-radius: 10px; border: 1px solid #d4af37; flex: 1;">
+          <div style="font-size: 15px; color: #ffd700; font-weight: bold; margin-bottom: 6px;">짝의 진술 판정</div>
+          <select id="selectPairTruth" style="font-size: 15px; margin: 0;">
+            <option value="">짝의 진실/거짓 선택</option>
+            <option value="진실">진실을 말함</option>
+            <option value="거짓">거짓을 말함</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="checkDoor4()">짝과 판정 맞추기</button>
+    </div>
+
+    <!-- 최종 탈출 성공 화면 -->
+    <div class="screen" id="screenClear">
+      <h2 style="color: var(--gold-color); font-size: 28px;">🎉 짝 탈출 성공!</h2>
+      <p style="font-size: 16px; color: #fff;">축하합니다! 짝과 함께 모든 확률 관문을 통과하셨습니다.</p>
+      <p id="clearSummary" style="color: var(--gold-color); font-weight: bold; font-size: 18px; margin: 20px 0;"></p>
+      <button class="btn-primary" onclick="location.reload()">처음으로 돌아가기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 교사 어드민 모달 -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal-content">
+    <h3 style="color: var(--gold-color); margin-top:0;">🔐 교사 관리자 모드</h3>
+    
+    <div id="adminAuthArea">
+      <p style="font-size:14px;">비밀번호를 입력하세요.</p>
+      <input type="password" id="adminPw" placeholder="비밀번호">
+      <button class="btn-primary" onclick="authAdmin()">인증하기</button>
+    </div>
+
+    <div id="adminMainArea" style="display:none;">
+      <div class="admin-tab">
+        <button id="tabBtn1" class="active" onclick="switchAdminTab(1)">학교/반/모둠 관리</button>
+        <button id="tabBtn2" onclick="switchAdminTab(2)">학생 기록 조회</button>
+      </div>
+
+      <div id="adminTab1">
+        <h4>1. 학교 관리</h4>
+        <div style="display:flex; gap:5px;">
+          <input type="text" id="newSchoolName" placeholder="학교명 입력">
+          <button class="btn-primary" style="width:70px; margin:0;" onclick="addSchool()">추가</button>
+        </div>
+        <div id="adminSchoolList" style="margin-top:8px;"></div>
+
+        <h4 style="margin-top:15px;">2. 학급(반) 관리</h4>
+        <select id="adminSchoolSelect" onchange="loadAdminClasses()">
+          <option value="">학교 선택</option>
+        </select>
+
+        <div id="adminClassSection" style="display:none; margin-top:8px;">
+          <div style="display:flex; gap:5px;">
+            <input type="text" id="newClassName" placeholder="반 추가 (예: 1반)">
+            <button class="btn-primary" style="width:70px; margin:0;" onclick="addClass()">추가</button>
+          </div>
+          <div id="adminClassList" style="margin-top:8px;"></div>
+        </div>
+
+        <h4 style="margin-top:15px;">3. 모둠 관리</h4>
+        <select id="adminClassSelect" onchange="loadAdminGroups()" style="display:none;">
+          <option value="">반 선택</option>
+        </select>
+
+        <div id="adminGroupSection" style="display:none; margin-top:8px;">
+          <div style="display:flex; gap:5px;">
+            <input type="text" id="newGroupName" placeholder="모둠 추가 (예: 1모둠)">
+            <button class="btn-primary" style="width:70px; margin:0;" onclick="addGroup()">추가</button>
+          </div>
+          <div id="adminGroupList" style="margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <div id="adminTab2" style="display:none;">
+        <h4>📋 학생 탈출 기록 목록</h4>
+        <div id="recordList" style="max-height: 280px; overflow-y: auto;"></div>
+      </div>
+    </div>
+
+    <button style="background:#555; margin-top:15px; border:none;" onclick="closeAdminModal()">닫기</button>
+  </div>
+</div>
+
+<script>
+  let schoolsData = {};
+  let gameState = {
+    userInfo: {},
+    role: 'A',
+    hearts: 3,
+    currentDoor: 1,
+    doorFailCounts: { 1: 0, 2: 0, 3: 0, 4: 0 },
+    maxFreeTries: { 1: 3, 2: 5, 3: 15, 4: 4 },
+    totalAttempts: 0,
+    door2Cards: [],
+    door2Revealed: [],
+    door3Cards: [],
+    door3Revealed: [],
+    door4RealMy: '진실'
+  };
+
+  window.addEventListener('load', () => {
+    let checkDb = setInterval(() => {
+      if (window.db) {
+        clearInterval(checkDb);
+        initFirebaseData();
+      }
+    }, 100);
+  });
+
+  function initFirebaseData() {
+    const schoolsRef = window.dbRef(window.db, 'schools');
+    window.dbOnValue(schoolsRef, (snapshot) => {
+      schoolsData = snapshot.val() || {};
+      updateSchoolDropdowns();
+      if (document.getElementById('adminMainArea').style.display !== 'none') {
+        renderAdminSchoolList();
+        loadAdminClasses();
+      }
+    });
+  }
+
+  function updateSchoolDropdowns() {
+    const sel = document.getElementById('selectSchool');
+    const adminSel = document.getElementById('adminSchoolSelect');
+    
+    sel.innerHTML = '<option value="">학교 선택</option>';
+    adminSel.innerHTML = '<option value="">학교 선택</option>';
+
+    for (let key in schoolsData) {
+      const option = `<option value="${key}">${schoolsData[key].name}</option>`;
+      sel.innerHTML += option;
+      adminSel.innerHTML += option;
+    }
+  }
+
+  function onSchoolChange() {
+    const schoolKey = document.getElementById('selectSchool').value;
+    const classSel = document.getElementById('selectClass');
+    classSel.innerHTML = '<option value="">반 선택</option>';
+    if (!schoolKey || !schoolsData[schoolKey] || !schoolsData[schoolKey].classes) {
+      classSel.disabled = true; return;
+    }
+    classSel.disabled = false;
+    const classes = schoolsData[schoolKey].classes;
+    for (let cKey in classes) {
+      classSel.innerHTML += `<option value="${cKey}">${classes[cKey].name}</option>`;
+    }
+  }
+
+  function onClassChange() {
+    const schoolKey = document.getElementById('selectSchool').value;
+    const classKey = document.getElementById('selectClass').value;
+    const groupDropdown = document.getElementById('selectGroupDropdown');
+    const groupInput = document.getElementById('inputGroupText');
+
+    groupDropdown.innerHTML = '<option value="">모둠 선택</option>';
+    if (schoolKey && classKey && schoolsData[schoolKey].classes[classKey].groups) {
+      const groups = schoolsData[schoolKey].classes[classKey].groups;
+      let hasGroups = false;
+      for (let gKey in groups) {
+        groupDropdown.innerHTML += `<option value="${groups[gKey]}">${groups[gKey]}</option>`;
+        hasGroups = true;
+      }
+      if (hasGroups) {
+        groupDropdown.style.display = 'block';
+        groupInput.style.display = 'none';
+        return;
+      }
+    }
+    groupDropdown.style.display = 'none';
+    groupInput.style.display = 'block';
+  }
+
+  function playDoorOpenAnimation(callback) {
+    const doorLayer = document.getElementById('doorLayer');
+    const frames = ['frame-1', 'frame-2', 'frame-3', 'frame-4', 'frame-5', 'frame-6'];
+    let idx = 0;
+    let animInterval = setInterval(() => {
+      doorLayer.className = `door-frame-layer ${frames[idx]}`;
+      idx++;
+      if (idx >= frames.length) {
+        clearInterval(animInterval);
+        setTimeout(() => {
+          callback();
+          doorLayer.className = 'door-frame-layer frame-1';
+        }, 300);
+      }
+    }, 180);
+  }
+
+  function updateHeartsDisplay() {
+    document.getElementById('heartsDisplay').innerText = '♥'.repeat(Math.max(0, gameState.hearts));
+  }
+
+  function handleFail() {
+    const currentDoor = gameState.currentDoor;
+    gameState.doorFailCounts[currentDoor]++;
+    gameState.totalAttempts++;
+
+    const currentFails = gameState.doorFailCounts[currentDoor];
+    const maxFree = gameState.maxFreeTries[currentDoor];
+
+    if (currentFails > maxFree) {
+      gameState.hearts--;
+      updateHeartsDisplay();
+      alert(`실패! 무료 기회(${maxFree}회)를 모두 사용하여 하트가 1개 차감되었습니다.`);
+    } else {
+      alert(`실패! 다시 도전하세요. (${currentDoor}번 문 무료 기회: ${currentFails}/${maxFree}회)`);
+    }
+
+    if (gameState.hearts <= 0) {
+      alert("하트를 모두 소모했습니다! 1번 문부터 다시 시작합니다.");
+      resetToStart();
+    }
+  }
+
+  function resetToStart() {
+    gameState.hearts = 3;
+    gameState.doorFailCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    gameState.currentDoor = 1;
+    updateHeartsDisplay();
+    showScreen('screenDoor1');
+  }
+
+  function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+  }
+
+  function updateRoleBadges() {
+    const roleText = gameState.role === 'A' ? "학생 A (열쇠지기)" : "학생 B (암호해독가)";
+    for(let i=1; i<=4; i++) {
+      const el = document.getElementById(`roleBadge${i}`);
+      if(el) el.innerText = `[내 역할: ${roleText}]`;
+    }
+  }
+
+  function startGame() {
+    const sKey = document.getElementById('selectSchool').value;
+    const cKey = document.getElementById('selectClass').value;
+    const groupDropdown = document.getElementById('selectGroupDropdown');
+    const groupInput = document.getElementById('inputGroupText');
+    const name = document.getElementById('inputName').value.trim();
+
+    gameState.role = document.getElementById('selectRole').value;
+    const group = (groupDropdown.style.display !== 'none') ? groupDropdown.value : groupInput.value.trim();
+
+    if (!name) { alert("이름을 입력하세요!"); return; }
+
+    const schoolName = (sKey && schoolsData[sKey]) ? schoolsData[sKey].name : "기본학교";
+    const className = (sKey && cKey && schoolsData[sKey].classes && schoolsData[sKey].classes[cKey]) ? schoolsData[sKey].classes[cKey].name : "1반";
+
+    gameState.userInfo = { schoolName, className, group: group || "1모둠", name, role: gameState.role };
+    document.getElementById('userInfoDisplay').innerText = `${schoolName} ${className} ${group||"1모둠"} [${gameState.role}] ${name}`;
+    document.getElementById('statusBar').style.display = 'flex';
+
+    updateRoleBadges();
+    initDoor1RoleUI();
+
+    playDoorOpenAnimation(() => {
+      showScreen('screenDoor1');
+    });
+  }
+
+  // 1번 문: 역할에 따른 입력창 락 제어
+  function initDoor1RoleUI() {
+    const dav1 = document.getElementById('davinci1');
+    const dav2 = document.getElementById('davinci2');
+
+    if (gameState.role === 'A') {
+      dav1.disabled = false;
+      dav2.disabled = true;
+      dav2.placeholder = "B입력";
+    } else {
+      dav1.disabled = true;
+      dav1.placeholder = "A입력";
+      dav2.disabled = false;
+    }
+  }
+
+  function checkDoor1() {
+    const ans1 = document.getElementById('davinci1').value.trim();
+    const ans2 = document.getElementById('davinci2').value.trim();
+
+    if (ans1 === '2' && ans2 === '5') {
+      alert("정답입니다! 짝과 함께 1번 문을 열었습니다!");
+      playDoorOpenAnimation(() => {
+        gameState.currentDoor = 2;
+        initDoor2();
+        showScreen('screenDoor2');
+      });
+    } else {
+      handleFail();
+    }
+  }
+
+  // 2번 문: A는 3장, B는 2장 카드 분배
+  function initDoor2() {
+    const cardCount = gameState.role === 'A' ? 3 : 2;
+    gameState.door2Cards = ['♥', 'X', 'X', '♥', 'X'].slice(0, cardCount);
+    gameState.door2Revealed = [];
+    renderDoor2();
+  }
+
+  function renderDoor2() {
+    const grid = document.getElementById('heartCardGrid');
+    grid.innerHTML = '';
+    gameState.door2Cards.forEach((card, idx) => {
+      const cardEl = document.createElement('div');
+      cardEl.className = 'card';
+      cardEl.innerText = gameState.door2Revealed.includes(idx) ? card : '?';
+      cardEl.onclick = () => selectDoor2Card(idx);
+      grid.appendChild(cardEl);
+    });
+  }
+
+  function selectDoor2Card(idx) {
+    if (gameState.door2Revealed.includes(idx)) return;
+    gameState.door2Revealed.push(idx);
+    renderDoor2();
+
+    const picked = gameState.door2Cards[idx];
+    if (picked === 'X') {
+      setTimeout(() => { handleFail(); initDoor2(); }, 300);
+    } else if (gameState.door2Revealed.length === 2) {
+      setTimeout(() => {
+        alert("성공! 문이 열립니다.");
+        playDoorOpenAnimation(() => {
+          gameState.currentDoor = 3;
+          initDoor3();
+          showScreen('screenDoor3');
+        });
+      }, 300);
+    }
+  }
+
+  // 3번 문: A는 카드 뽑기 / B는 실시간 확률 분석기
+  function initDoor3() {
+    gameState.door3Cards = ['🌸', '🌸', '🌸', '🌸', '💀', '💀'].sort(() => Math.random() - 0.5);
+    gameState.door3Revealed = [];
+
+    const guideText = document.getElementById('skullGuideText');
+    const grid = document.getElementById('skullCardGrid');
+    const analystBox = document.getElementById('skullAnalystBox');
+
+    if (gameState.role === 'A') {
+      guideText.innerHTML = "• <strong>A 역할:</strong> 뒤집힌 6장 중 <span class='guide-highlight'>꽃(🌸) 2개</span>를 찾아내세요! B의 확률 조언을 들으세요.";
+      grid.style.display = 'flex';
+      analystBox.style.display = 'none';
+      renderDoor3();
+    } else {
+      guideText.innerHTML = "• <strong>B 역할 (확률 분석가):</strong> A가 카드를 뽑을 때마다 남아있는 카드 수와 해골을 뽑을 위험 확률을 A에게 실시간으로 알려주세요!";
+      grid.style.display = 'none';
+      analystBox.style.display = 'block';
+      updateSkullAnalystUI();
+    }
+  }
+
+  function updateSkullAnalystUI() {
+    const totalLeft = 6 - gameState.door3Revealed.length;
+    let skullLeft = 2;
+    gameState.door3Revealed.forEach(idx => {
+      if (gameState.door3Cards[idx] === '💀') skullLeft--;
+    });
+    const skullProb = ((skullLeft / totalLeft) * 100).toFixed(1);
+
+    document.getElementById('skullAnalystBox').innerHTML = `
+      <div style="color:#ffd700; font-weight:bold; font-size:18px; margin-bottom:8px;">📊 B의 확률 실시간 분석판</div>
+      <div>• 남아있는 전체 카드: <strong>${totalLeft}장</strong></div>
+      <div>• 남은 해골 개수: <strong>${skullLeft}개</strong></div>
+      <div style="margin-top:8px; color:#ff4757; font-weight:bold; font-size:18px;">
+        ⚠️ 이번에 해골(💀)을 뽑을 확률: ${skullProb}%
+      </div>
+      <div style="font-size:13px; color:#aaa; margin-top:8px;">이 확률을 짝 A에게 목소리로 알려주세요!</div>
+    `;
+  }
+
+  function renderDoor3() {
+    const grid = document.getElementById('skullCardGrid');
+    grid.innerHTML = '';
+    gameState.door3Cards.forEach((card, idx) => {
+      const cardEl = document.createElement('div');
+      cardEl.className = 'card';
+      cardEl.innerText = gameState.door3Revealed.includes(idx) ? card : '?';
+      cardEl.onclick = () => selectDoor3Card(idx);
+      grid.appendChild(cardEl);
+    });
+  }
+
+  function selectDoor3Card(idx) {
+    if (gameState.door3Revealed.includes(idx)) return;
+    gameState.door3Revealed.push(idx);
+    renderDoor3();
+
+    const picked = gameState.door3Cards[idx];
+    if (picked === '💀') {
+      setTimeout(() => { handleFail(); initDoor3(); }, 300);
+    } else if (gameState.door3Revealed.length === 2) {
+      setTimeout(() => {
+        alert("성공! 문이 열립니다.");
+        playDoorOpenAnimation(() => {
+          gameState.currentDoor = 4;
+          initDoor4();
+          showScreen('screenDoor4');
+        });
+      }, 300);
+    }
+  }
+
+  // 4번 문: 비대칭 주사위
+  function initDoor4() {
+    const ciaoFaces = ['1', '2', '3', '4', 'X', 'X'];
+    const myRoll = ciaoFaces[Math.floor(Math.random() * ciaoFaces.length)];
+
+    gameState.door4RealMy = (myRoll !== 'X') ? '진실' : '거짓';
+    const sayNum = (myRoll !== 'X') ? myRoll : Math.floor(Math.random() * 4) + 1;
+
+    document.getElementById('myDiceResult').innerText = `[ ${myRoll} ] ➔ 짝에게 "${sayNum}" 외치기!`;
+    document.getElementById('selectPairTruth').value = "";
+  }
+
+  function checkDoor4() {
+    const pairTruth = document.getElementById('selectPairTruth').value;
+    if (!pairTruth) { alert("짝의 외침이 진실인지 거짓인지 선택해 주세요!"); return; }
+
+    alert("짝과 판정 확인 완료! 최종 탈출에 성공하셨습니다!");
+    document.getElementById('clearSummary').innerText = 
+      `${gameState.userInfo.schoolName} ${gameState.userInfo.className} ${gameState.userInfo.group} [${gameState.userInfo.name} & 짝] 탈출 완료!`;
+    
+    saveResultToFirebase();
+    showScreen('screenClear');
+  }
+
+  function saveResultToFirebase() {
+    const resultsRef = window.dbRef(window.db, 'results');
+    window.dbPush(resultsRef, {
+      ...gameState.userInfo,
+      remainingHearts: gameState.hearts,
+      totalAttempts: gameState.totalAttempts,
+      timestamp: new Date().toLocaleString()
+    });
+  }
+
+  // 어드민 기능
+  function openAdminModal() { document.getElementById('adminModal').classList.add('active'); }
+  function closeAdminModal() { document.getElementById('adminModal').classList.remove('active'); }
+
+  function authAdmin() {
+    const pw = document.getElementById('adminPw').value;
+    if (pw === '3141592') {
+      document.getElementById('adminAuthArea').style.display = 'none';
+      document.getElementById('adminMainArea').style.display = 'block';
+      renderAdminSchoolList(); loadStudentRecords();
+    } else { alert("비밀번호가 올바르지 않습니다!"); }
+  }
+
+  function switchAdminTab(tabIndex) {
+    document.getElementById('tabBtn1').classList.toggle('active', tabIndex === 1);
+    document.getElementById('tabBtn2').classList.toggle('active', tabIndex === 2);
+    document.getElementById('adminTab1').style.display = tabIndex === 1 ? 'block' : 'none';
+    document.getElementById('adminTab2').style.display = tabIndex === 2 ? 'block' : 'none';
+  }
+
+  function addSchool() {
+    const name = document.getElementById('newSchoolName').value.trim();
+    if (!name) return;
+    const ref = window.dbRef(window.db, 'schools');
+    const newRef = window.dbPush(ref);
+    window.dbSet(newRef, { name: name });
+    document.getElementById('newSchoolName').value = '';
+  }
+
+  function renderAdminSchoolList() {
+    const list = document.getElementById('adminSchoolList'); list.innerHTML = '';
+    for (let sKey in schoolsData) {
+      list.innerHTML += `<div class="list-item"><span>${schoolsData[sKey].name}</span><div>
+        <button class="btn-sm btn-edit" onclick="editSchool('${sKey}', '${schoolsData[sKey].name}')">수정</button>
+        <button class="btn-sm btn-danger" onclick="deleteSchool('${sKey}')">삭제</button></div></div>`;
+    }
+  }
+
+  function editSchool(sKey, oldName) {
+    const newName = prompt("수정할 학교명을 입력하세요:", oldName);
+    if (newName && newName.trim() !== "") {
+      const ref = window.dbRef(window.db, `schools/${sKey}`);
+      window.dbUpdate(ref, { name: newName.trim() });
+    }
+  }
+
+  function deleteSchool(sKey) {
+    if (confirm("해당 학교를 삭제하시겠습니까?")) {
+      const ref = window.dbRef(window.db, `schools/${sKey}`);
+      window.dbRemove(ref);
+    }
+  }
+
+  function loadAdminClasses() {
+    const sKey = document.getElementById('adminSchoolSelect').value;
+    const sec = document.getElementById('adminClassSection');
+    const classList = document.getElementById('adminClassList');
+    const classSel = document.getElementById('adminClassSelect');
+
+    classList.innerHTML = ''; classSel.innerHTML = '<option value="">반 선택</option>';
+    document.getElementById('adminGroupSection').style.display = 'none';
+
+    if (!sKey || !schoolsData[sKey]) { sec.style.display = 'none'; classSel.style.display = 'none'; return; }
+
+    sec.style.display = 'block'; classSel.style.display = 'block';
+    const classes = schoolsData[sKey].classes || {};
+
+    for (let cKey in classes) {
+      classSel.innerHTML += `<option value="${cKey}">${classes[cKey].name}</option>`;
+      classList.innerHTML += `<div class="list-item"><span>${classes[cKey].name}</span><div>
+        <button class="btn-sm btn-edit" onclick="editClass('${sKey}', '${cKey}', '${classes[cKey].name}')">수정</button>
+        <button class="btn-sm btn-danger" onclick="deleteClass('${sKey}', '${cKey}')">삭제</button></div></div>`;
+    }
+  }
+
+  function addClass() {
+    const sKey = document.getElementById('adminSchoolSelect').value;
+    const cName = document.getElementById('newClassName').value.trim();
+    if (!sKey || !cName) return;
+    const ref = window.dbRef(window.db, `schools/${sKey}/classes`);
+    const newRef = window.dbPush(ref);
+    window.dbSet(newRef, { name: cName });
+    document.getElementById('newClassName').value = '';
+  }
+
+  function editClass(sKey, cKey, oldName) {
+    const newName = prompt("수정할 반 이름을 입력하세요:", oldName);
+    if (newName && newName.trim() !== "") {
+      const ref = window.dbRef(window.db, `schools/${sKey}/classes/${cKey}`);
+      window.dbUpdate(ref, { name: newName.trim() });
+      loadAdminClasses();
+    }
+  }
+
+  function deleteClass(sKey, cKey) {
+    if (confirm("해당 반을 삭제하시겠습니까?")) {
+      const ref = window.dbRef(window.db, `schools/${sKey}/classes/${cKey}`);
+      window.dbRemove(ref);
+      loadAdminClasses();
+    }
+  }
+
+  function loadAdminGroups() {
+    const sKey = document.getElementById('adminSchoolSelect').value;
+    const cKey = document.getElementById('adminClassSelect').value;
+    const sec = document.getElementById('adminGroupSection');
+    const list = document.getElementById('adminGroupList'); list.innerHTML = '';
+
+    if (!cKey || !schoolsData[sKey] || !schoolsData[sKey].classes || !schoolsData[sKey].classes[cKey]) {
+      sec.style.display = 'none'; return;
+    }
+
+    sec.style.display = 'block';
+    const groups = schoolsData[sKey].classes[cKey].groups || {};
+    for (let gKey in groups) {
+      list.innerHTML += `<div class="list-item"><span>${groups[gKey]}</span>
+        <button class="btn-sm btn-danger" onclick="deleteGroup('${sKey}','${cKey}','${gKey}')">삭제</button></div>`;
+    }
+  }
+
+  function addGroup() {
+    const sKey = document.getElementById('adminSchoolSelect').value;
+    const cKey = document.getElementById('adminClassSelect').value;
+    const gName = document.getElementById('newGroupName').value.trim();
+    if (!sKey || !cKey || !gName) return;
+    const ref = window.dbRef(window.db, `schools/${sKey}/classes/${cKey}/groups`);
+    const newRef = window.dbPush(ref);
+    window.dbSet(newRef, gName);
+    document.getElementById('newGroupName').value = '';
+    loadAdminGroups();
+  }
+
+  function deleteGroup(sKey, cKey, gKey) {
+    const ref = window.dbRef(window.db, `schools/${sKey}/classes/${cKey}/groups/${gKey}`);
+    window.dbRemove(ref); loadAdminGroups();
+  }
+
+  function loadStudentRecords() {
+    const resultsRef = window.dbRef(window.db, 'results');
+    window.dbOnValue(resultsRef, (snapshot) => {
+      const records = snapshot.val() || {};
+      const list = document.getElementById('recordList'); list.innerHTML = '';
+      for (let key in records) {
+        const r = records[key];
+        list.innerHTML += `<div class="list-item" style="flex-direction:column; align-items:flex-start;">
+          <div><strong>${r.schoolName} ${r.className} ${r.group} [${r.role}] ${r.name}</strong></div>
+          <div style="font-size:12px; color:#aaa;">남은하트: ${r.remainingHearts}개 | 전체시도: ${r.totalAttempts}회 | 완료시간: ${r.timestamp}</div>
+        </div>`;
+      }
+    });
+  }
+</script>
+</body>
+</html>
