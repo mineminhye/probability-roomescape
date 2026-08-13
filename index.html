@@ -264,7 +264,7 @@
     <div id="userInfoDisplay"></div>
     <div class="hearts" id="heartsDisplay"></div>
   </div>
-  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v3-sync</div>
+  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v4-sync</div>
 
   <div class="content-area">
     <!-- 0. 시작 화면 -->
@@ -474,6 +474,21 @@
     el.appendChild(line);
     el.scrollTop = el.scrollHeight;
     console.log('[DBG]', msg);
+  }
+
+  // 비차단 토스트 메시지 (alert 대신)
+  function toast(msg, ms) {
+    let t = document.getElementById('gameToast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'gameToast';
+      t.style.cssText = 'position:fixed; top:20%; left:50%; transform:translateX(-50%); background:#23120d; color:#ffd700; border:2px solid #ffd700; border-radius:12px; padding:16px 24px; font-size:18px; font-weight:bold; z-index:9998; box-shadow:0 8px 30px rgba(0,0,0,0.8); text-align:center; max-width:90%;';
+      document.body.appendChild(t);
+    }
+    t.innerHTML = msg;
+    t.style.display = 'block';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.style.display = 'none'; }, ms || 2200);
   }
 
   let schoolsData = {};
@@ -759,7 +774,7 @@
     isHost = (gameState.role === 'A');
     roomKey = sanitizeKey(`${schoolName}_${className}_${group}`);
     roomRef = window.dbRef(window.db, `rooms/${roomKey}`);
-    dbg('[v3 동기화] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
+    dbg('[v4] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
 
     // 방장(A)은 시작 시 이전 판 찌꺼기를 청소한다 (같은 모둠 재시작 대비)
     if (isHost) {
@@ -822,8 +837,10 @@
       : document.getElementById('davinci2');
     const num = parseInt((myInput.value || '').trim(), 10);
     const validAnswers = gameState.role === 'A' ? [2] : [6];
+    const ok = (!isNaN(num) && validAnswers.includes(num));
+    dbg(`1번 채점: 역할=${gameState.role} 입력=${num} 정답셋=[${validAnswers}] → ${ok ? '정답' : '오답'}`, ok ? '#7CFC00' : '#ff6b6b');
 
-    if (!isNaN(num) && validAnswers.includes(num)) {
+    if (ok) {
       alert(`정답입니다! [학생 ${gameState.role}] 미션 성공! 2번 문으로 이동합니다.`);
       playDoorOpenAnimation(() => {
         enterDoor(2);
@@ -966,7 +983,7 @@
         myProgress = 'door4';
         dbg('▶ 4번 문 입장!', '#7CFC00');
         if (cameFromDoor3) {
-          alert('🎉 3번 문 성공! 4번 문에 도전하세요!');
+          toast('🎉 3번 문 성공!<br>4번 문에 도전하세요!', 2500);
           playDoorOpenAnimation(() => { showScreen('screenDoor4'); renderDoor4(); });
         } else {
           showScreen('screenDoor4');
