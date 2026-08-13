@@ -821,7 +821,7 @@
       ? document.getElementById('davinci1')
       : document.getElementById('davinci2');
     const num = parseInt((myInput.value || '').trim(), 10);
-    const validAnswers = gameState.role === 'A' ? [2, 3] : [5, 6];
+    const validAnswers = gameState.role === 'A' ? [2] : [6];
 
     if (!isNaN(num) && validAnswers.includes(num)) {
       alert(`정답입니다! [학생 ${gameState.role}] 미션 성공! 2번 문으로 이동합니다.`);
@@ -962,9 +962,15 @@
       renderDoor3();
     } else if (phase === 'door4') {
       if (myProgress !== 'door4' && myProgress !== 'cleared') {
+        const cameFromDoor3 = (myProgress === 'door3');
         myProgress = 'door4';
         dbg('▶ 4번 문 입장!', '#7CFC00');
-        showScreen('screenDoor4');
+        if (cameFromDoor3) {
+          alert('🎉 3번 문 성공! 4번 문에 도전하세요!');
+          playDoorOpenAnimation(() => { showScreen('screenDoor4'); renderDoor4(); });
+        } else {
+          showScreen('screenDoor4');
+        }
       }
       if (myProgress === 'door4') renderDoor4();
     } else if (phase === 'cleared') {
@@ -1183,13 +1189,11 @@
       window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`), {
         bPick: c, result: 'lose', resultToken: token, tries: (d.tries || 0) + 1
       });
-      // 하트가 남았으면 잠시 후 방장이 새 라운드 시작 (0이면 방장 워치독이 3번 문부터 리셋)
+      // 하트가 남았으면 잠시 후 새 라운드 (판정자 B가 직접 — 방장 게이트 제거)
       if (nextHearts > 0) {
         setTimeout(() => {
-          if (isHost) {
-            window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`),
-              newDoor4Round((d.tries || 0) + 1, d.success || 0));
-          }
+          window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`),
+            newDoor4Round((d.tries || 0) + 1, d.success || 0));
         }, 1600);
       }
     }
