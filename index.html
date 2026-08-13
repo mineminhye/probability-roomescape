@@ -97,7 +97,7 @@
       font-size: clamp(13px, 3.6vw, 16px); color: var(--gold-color); font-weight: bold;
     }
 
-    .hearts { font-size: clamp(20px, 5.5vw, 24px); color: var(--accent-color); letter-spacing: 2px; }
+    .hearts { font-size: clamp(14px, 4vw, 19px); color: var(--accent-color); letter-spacing: 1px; line-height: 1.3; text-align: right; word-break: break-all; max-width: 55%; }
 
     .admin-btn {
       position: absolute; top: 12px; right: 12px; background: none; border: none;
@@ -268,7 +268,7 @@
     <div id="userInfoDisplay"></div>
     <div class="hearts" id="heartsDisplay"></div>
   </div>
-  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v10-sync</div>
+  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v12-sync</div>
 
   <div class="content-area">
     <!-- 0. 시작 화면 -->
@@ -380,7 +380,7 @@
     <div class="screen" id="screenDoor4">
       <div id="roleBadge4" class="role-badge"></div>
       <div class="guide-box">
-        <div class="guide-title">🔓 4번 문: 보물섬 지도 — 곱의 법칙</div>
+        <div class="guide-title">🔓 4번 문: 보물섬 지도</div>
         <div class="guide-desc">
           • <span class="guide-highlight">A는 행(A·B·C)</span>, <span class="guide-highlight">B는 열(1·2·3·4)</span>을 담당합니다.<br>
           • A가 먼저 행을, B가 다음으로 열을 고릅니다. 두 좌표가 만나는 칸이 <span class="guide-highlight">보물칸</span>이면 성공!
@@ -532,7 +532,7 @@
   let handledSkullToken = 0;
   let resultBusy = false;
   let savedResult = false;
-  const SHARED_HEARTS = 8;         // 3·4번 문 공용 하트
+  const SHARED_HEARTS = 15;        // 3·4번 문 공용 하트
 
   window.addEventListener('load', () => {
     let checkDb = setInterval(() => {
@@ -790,7 +790,7 @@
     isHost = (gameState.role === 'A');
     roomKey = sanitizeKey(`${schoolName}_${className}_${group}`);
     roomRef = window.dbRef(window.db, `rooms/${roomKey}`);
-    dbg('[v10] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
+    dbg('[v12] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
 
     // 방장(A)은 시작 시 이전 판 게임 상태만 청소한다 (ready는 건드리지 않음!)
     if (isHost) {
@@ -1196,7 +1196,7 @@
 
     // 로그
     document.getElementById('treasureLog').innerHTML =
-      `🔎 시도 ${d.tries || 0}회 · 성공 ${d.success || 0}회 &nbsp;|&nbsp; 보물 찾을 확률 = 1/3 × 1/4 = <b>1/12</b>`;
+      `🔎 도전 기록 &nbsp;|&nbsp; 시도 ${d.tries || 0}회 · 보물 발견 ${d.success || 0}회`;
 
     // 턴 배너
     const banner = document.getElementById('turnBanner4');
