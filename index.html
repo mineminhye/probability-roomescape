@@ -264,7 +264,7 @@
     <div id="userInfoDisplay"></div>
     <div class="hearts" id="heartsDisplay"></div>
   </div>
-  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v5-sync</div>
+  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v6-sync</div>
 
   <div class="content-area">
     <!-- 0. 시작 화면 -->
@@ -332,14 +332,29 @@
     <!-- 대기 화면: 짝 준비 대기 -->
     <div class="screen" id="screenWaiting">
       <div class="guide-box">
-        <div class="guide-title">⏳ 짝을 기다리는 중…</div>
+        <div class="guide-title">⏳ 대기실</div>
         <div class="guide-desc">
           3번 문부터는 <span class="guide-highlight">짝과 함께 실시간으로</span> 진행합니다.<br>
-          두 사람 모두 2번 문을 통과하면 자동으로 시작됩니다.
+          두 사람 모두 2번 문을 통과하면, <span class="guide-highlight">방장(학생 A)이 문을 엽니다.</span>
         </div>
       </div>
       <div id="waitStatus" style="font-size:18px; color:#ffd700; font-weight:bold; margin:20px 0;"></div>
-      <div class="spinner"></div>
+      <button class="btn-primary" id="openDoor3Btn" style="display:none;" onclick="hostOpenDoor3()">🔓 3번 문 열기</button>
+      <div id="waitHint" style="font-size:15px; color:#ffd7a0; margin-top:12px;"></div>
+      <div class="spinner" id="waitSpinner"></div>
+    </div>
+
+    <!-- 3번→4번 사이 대기: 방장이 4번 문 열기 -->
+    <div class="screen" id="screenDoor4Gate">
+      <div class="guide-box">
+        <div class="guide-title">🎉 3번 문 성공!</div>
+        <div class="guide-desc">
+          이제 마지막 <span class="guide-highlight">4번 문(보물섬 지도)</span>입니다.<br>
+          <span class="guide-highlight">방장(학생 A)이 문을 열면</span> 함께 도전합니다.
+        </div>
+      </div>
+      <button class="btn-primary" id="openDoor4Btn" style="display:none;" onclick="hostOpenDoor4()">🔓 4번 문 열기</button>
+      <div id="gate4Hint" style="font-size:15px; color:#ffd7a0; margin-top:12px;"></div>
     </div>
 
     <!-- 3번 문: 스컬 (실시간 턴제) -->
@@ -775,7 +790,7 @@
     isHost = (gameState.role === 'A');
     roomKey = sanitizeKey(`${schoolName}_${className}_${group}`);
     roomRef = window.dbRef(window.db, `rooms/${roomKey}`);
-    dbg('[v5] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
+    dbg('[v6] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
 
     // 방장(A)은 시작 시 이전 판 게임 상태만 청소한다 (ready는 건드리지 않음!)
     if (isHost) {
@@ -920,6 +935,50 @@
     document.getElementById('waitStatus').innerHTML =
       `<div style="font-size:16px; color:#fff; margin-bottom:10px;">나는 <b style="color:#ffd700;">학생 ${gameState.role}</b> 입니다</div>` +
       `학생 A: ${rA ? '✅ 준비완료' : '⏳ 진행 중'}<br>학생 B: ${rB ? '✅ 준비완료' : '⏳ 진행 중'}`;
+
+    const btn = document.getElementById('openDoor3Btn');
+    const hint = document.getElementById('waitHint');
+    const spinner = document.getElementById('waitSpinner');
+    const ready = (rA && rB);
+
+    if (isHost) {
+      // 방장(A): 둘 다 준비되면 버튼 활성화
+      btn.style.display = ready ? 'block' : 'none';
+      hint.innerText = ready ? '' : '짝(B)이 2번 문을 통과하기를 기다리는 중…';
+      spinner.style.display = ready ? 'none' : 'block';
+    } else {
+      // 학생 B: 버튼 없음, 방장이 열기를 대기
+      btn.style.display = 'none';
+      hint.innerText = ready ? '방장(A)이 3번 문을 열기를 기다리는 중…' : '내가 준비되었습니다. 짝(A)을 기다리는 중…';
+      spinner.style.display = 'block';
+    }
+  }
+
+  // 방장이 3번 문 열기 버튼을 누름
+  function hostOpenDoor3() {
+    if (!isHost) return;
+    if (!bothReady()) { alert('아직 짝이 준비되지 않았습니다.'); return; }
+    dbg('🔑 방장이 3번 문 열기 버튼 누름', '#7CFC00');
+    initSharedDoor3();
+  }
+
+  // 방장이 4번 문 열기 버튼을 누름
+  function hostOpenDoor4() {
+    if (!isHost) return;
+    dbg('🔑 방장이 4번 문 열기 버튼 누름', '#7CFC00');
+    startSharedDoor4();
+  }
+
+  function renderDoor4Gate() {
+    const btn = document.getElementById('openDoor4Btn');
+    const hint = document.getElementById('gate4Hint');
+    if (isHost) {
+      btn.style.display = 'block';
+      hint.innerText = '';
+    } else {
+      btn.style.display = 'none';
+      hint.innerText = '방장(A)이 4번 문을 열기를 기다리는 중…';
+    }
   }
 
   function shuffled(arr) { return arr.slice().sort(() => Math.random() - 0.5); }
@@ -965,14 +1024,9 @@
     // 아직 로컬 1·2번 문을 하는 중이면 관여하지 않음
     if (myProgress === 'door1' || myProgress === 'door2') return;
 
-    // 대기 중이고 아직 게임이 안 열렸으면, 방장이 둘 다 준비됐는지 확인 후 3번 문 개시
+    // 대기 중이면 준비 상태만 갱신 (문 열기는 방장 버튼으로)
     if (myProgress === 'waiting') {
       renderWaiting();
-      if (!phase && isHost && bothReady() && !door3InitSent) {
-        door3InitSent = true;
-        dbg('🏠 조건 충족 → 3번 문 개시', '#7CFC00');
-        initSharedDoor3();
-      }
     }
 
     // phase 처리 (방장/비방장 공통) — 어떤 진행 상태든 phase 변화를 반드시 반영
@@ -983,13 +1037,19 @@
         showScreen('screenDoor3');
       }
       renderDoor3();
+    } else if (phase === 'door4gate') {
+      if (myProgress !== 'door4gate') {
+        myProgress = 'door4gate';
+        dbg('▶ 4번 문 게이트', '#7CFC00');
+        showScreen('screenDoor4Gate');
+      }
+      renderDoor4Gate();
     } else if (phase === 'door4') {
       if (myProgress !== 'door4' && myProgress !== 'cleared') {
-        const cameFromDoor3 = (myProgress === 'door3');
+        const cameFromGate = (myProgress === 'door4gate' || myProgress === 'door3');
         myProgress = 'door4';
         dbg('▶ 4번 문 입장!', '#7CFC00');
-        if (cameFromDoor3) {
-          toast('🎉 3번 문 성공!<br>4번 문에 도전하세요!', 2500);
+        if (cameFromGate) {
           playDoorOpenAnimation(() => { showScreen('screenDoor4'); renderDoor4(); });
         } else {
           showScreen('screenDoor4');
@@ -1079,8 +1139,8 @@
     Object.keys(revealed).forEach(k => { if ((d.cards || [])[k] === '🌸') flowers++; });
 
     if (flowers >= 2) {
-      // 3번 문 통과 → 4번 문 시작
-      startSharedDoor4();
+      // 3번 문 통과 → 4번 문 게이트(방장이 열기)로
+      window.dbUpdate(roomRef, { phase: 'door4gate' });
     } else {
       window.dbUpdate(roomRef, {
         door3: { cards: d.cards, revealed: revealed, turn: other }
