@@ -264,6 +264,7 @@
     <div id="userInfoDisplay"></div>
     <div class="hearts" id="heartsDisplay"></div>
   </div>
+  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v3-sync</div>
 
   <div class="content-area">
     <!-- 0. 시작 화면 -->
@@ -481,7 +482,7 @@
     role: 'A',
     maxHearts: 4,
     hearts: 4,
-    doorHearts: { 1: 4, 2: 8 },
+    doorHearts: { 1: 2, 2: 2 },
     currentDoor: 1,
     totalAttempts: 0,
     startTime: null,
@@ -497,6 +498,7 @@
   let isHost = false;              // A가 방장(공유 상태 초기화 담당)
   let handledResetToken = 0;
   let handledResultToken = 0;
+  let heartResetBusy = false;
   let resultBusy = false;
   let savedResult = false;
   const SHARED_HEARTS = 8;         // 3·4번 문 공용 하트
@@ -757,12 +759,24 @@
     isHost = (gameState.role === 'A');
     roomKey = sanitizeKey(`${schoolName}_${className}_${group}`);
     roomRef = window.dbRef(window.db, `rooms/${roomKey}`);
-    dbg('내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
+    dbg('[v3 동기화] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
+
+    // 방장(A)은 시작 시 이전 판 찌꺼기를 청소한다 (같은 모둠 재시작 대비)
+    if (isHost) {
+      window.dbUpdate(roomRef, {
+        phase: null, door3: null, door4: null, hearts: null,
+        resetToken: null, resetMsg: null, ready: null
+      })
+        .then(() => dbg('🧹 방장: 이전 판 청소 완료'))
+        .catch((e) => dbg('❌ 방 청소 실패: ' + e.message, '#ff6b6b'));
+    }
+
     // 내 입장 표시 + 방 구독 시작
     window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/players`), { [gameState.role]: true })
       .then(() => dbg('players 쓰기 성공'))
       .catch((e) => dbg('❌ players 쓰기 실패: ' + e.message, '#ff6b6b'));
     window.dbOnValue(roomRef, onRoomUpdate);
+    startRoomWatchdog();
     dbg('방 구독 시작');
 
     gameState.totalAttempts = 0;
@@ -890,11 +904,17 @@
   function shuffled(arr) { return arr.slice().sort(() => Math.random() - 0.5); }
   function rnd(n) { return Math.floor(Math.random() * n); }
 
-  // ---- 방 상태 구독 핸들러 (모든 실시간 변화의 중심) ----
+  // ---- 방 상태 수신 → 적용 ----
   function onRoomUpdate(snapshot) {
     roomState = snapshot.val() || {};
     const rd = roomState.ready || {};
     dbg('방 수신: phase=' + (roomState.phase || '없음') + ' / ready A=' + (!!rd.A) + ' B=' + (!!rd.B) + ' / 내진행=' + myProgress);
+    applyRoomState();
+  }
+
+  // ---- 방 상태를 화면에 적용 (수신 시 + 1초마다 워치독으로 재실행) ----
+  function applyRoomState() {
+    if (!roomState) return;
 
     // 3·4번 문 단계에서는 공유 하트를 표시
     if ((myProgress === 'door3' || myProgress === 'door4') && roomState.hearts != null) {
@@ -906,8 +926,18 @@
     // 공용 하트 리셋 안내 (양쪽 1회씩)
     if (roomState.resetToken && roomState.resetToken !== handledResetToken) {
       handledResetToken = roomState.resetToken;
-      alert(roomState.resetMsg || '하트를 모두 소모했습니다! 이 문을 다시 시작합니다.');
+      alert(roomState.resetMsg || '하트를 모두 소모했습니다! 3번 문부터 다시 시작합니다.');
     }
+
+    // 방장: 공유 하트가 0이 되면 (3·4번 어디서든) 3번 문부터 리셋
+    if (isHost && roomState.hearts != null && roomState.hearts <= 0 &&
+        (roomState.phase === 'door3' || roomState.phase === 'door4') && !heartResetBusy) {
+      heartResetBusy = true;
+      setTimeout(() => {
+        sharedReset('reset', '하트를 모두 소모했습니다! 3번 문부터 다시 시작합니다.');
+      }, 1400);
+    }
+    if (roomState.hearts != null && roomState.hearts > 0) heartResetBusy = false;
 
     const phase = roomState.phase;
 
@@ -919,7 +949,6 @@
       renderWaiting();
       if (!phase && isHost && bothReady()) {
         initSharedDoor3();
-        // return 하지 않는다 — 아래 phase 처리에서 다음 수신을 자연히 받음
       }
     }
 
@@ -944,6 +973,13 @@
         finishGame();
       }
     }
+  }
+
+  // 이벤트를 놓쳐도 1초마다 방 상태를 다시 적용 (자가 복구)
+  let roomWatchdog = null;
+  function startRoomWatchdog() {
+    if (roomWatchdog) return;
+    roomWatchdog = setInterval(() => { if (roomState) applyRoomState(); }, 1000);
   }
 
   // ================= 3번 문: 스컬 (실시간 턴제) =================
@@ -999,17 +1035,13 @@
     const other = gameState.role === 'A' ? 'B' : 'A';
 
     if (picked === '💀') {
-      // 해골 → 하트 차감 + 카드 재섞기 + 턴 넘김
+      // 해골 → 하트 차감 + 카드 재섞기 + 턴 넘김 (하트 0이면 방장이 3번 문부터 리셋)
       const nextHearts = (roomState.hearts || SHARED_HEARTS) - 1;
-      if (nextHearts <= 0) {
-        sharedReset('door3', '해골! 하트를 모두 소모했습니다. 3번 문을 다시 시작합니다.');
-      } else {
-        window.dbUpdate(roomRef, {
-          hearts: nextHearts,
-          totalAttempts: (roomState.totalAttempts || 0) + 1,
-          door3: { cards: shuffled(['🌸','🌸','🌸','🌸','💀','💀']), revealed: {}, turn: other }
-        });
-      }
+      window.dbUpdate(roomRef, {
+        hearts: nextHearts,
+        totalAttempts: (roomState.totalAttempts || 0) + 1,
+        door3: { cards: shuffled(['🌸','🌸','🌸','🌸','💀','💀']), revealed: {}, turn: other }
+      });
       return;
     }
 
@@ -1032,9 +1064,9 @@
   const COL_LABELS = ['1', '2', '3', '4'];
 
   function startSharedDoor4() {
+    // 하트는 3번에서 남은 것을 그대로 이어쓴다 (3·4번 공용 8개 풀)
     window.dbUpdate(roomRef, {
       phase: 'door4',
-      hearts: SHARED_HEARTS,
       door4: newDoor4Round(0, 0)
     });
   }
@@ -1147,17 +1179,12 @@
       setTimeout(() => { window.dbUpdate(roomRef, { phase: 'cleared' }); }, 1800);
     } else {
       const nextHearts = (roomState.hearts || SHARED_HEARTS) - 1;
-      if (nextHearts <= 0) {
-        window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`), {
-          bPick: c, result: 'lose', resultToken: token, tries: (d.tries || 0) + 1
-        });
-        setTimeout(() => sharedReset('door4', '하트를 모두 소모했습니다! 4번 문을 다시 시작합니다.'), 1600);
-      } else {
-        window.dbUpdate(roomRef, { hearts: nextHearts });
-        window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`), {
-          bPick: c, result: 'lose', resultToken: token, tries: (d.tries || 0) + 1
-        });
-        // 실패 → 잠시 후 방장이 새 라운드 시작
+      window.dbUpdate(roomRef, { hearts: nextHearts });
+      window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`), {
+        bPick: c, result: 'lose', resultToken: token, tries: (d.tries || 0) + 1
+      });
+      // 하트가 남았으면 잠시 후 방장이 새 라운드 시작 (0이면 방장 워치독이 3번 문부터 리셋)
+      if (nextHearts > 0) {
         setTimeout(() => {
           if (isHost) {
             window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`),
@@ -1180,21 +1207,17 @@
     }
   }
 
-  // 공용 하트 리셋: 해당 문을 다시 시작 (방장이 상태 재설정)
+  // 공용 하트 소진 → 3·4번 세트를 3번 문부터 다시 시작 (방장 전담)
   function sharedReset(door, msg) {
     if (!isHost) return;
-    const base = {
+    window.dbUpdate(roomRef, {
       resetToken: Date.now(),
       resetMsg: msg,
-      hearts: SHARED_HEARTS
-    };
-    if (door === 'door3') {
-      base.door3 = { cards: shuffled(['🌸','🌸','🌸','🌸','💀','💀']), revealed: {}, turn: 'A' };
-    } else {
-      base.door4 = newDoor4Round(roomState.door4 ? (roomState.door4.tries || 0) : 0,
-                                 roomState.door4 ? (roomState.door4.success || 0) : 0);
-    }
-    window.dbUpdate(roomRef, base);
+      hearts: SHARED_HEARTS,
+      phase: 'door3',
+      door3: { cards: shuffled(['🌸','🌸','🌸','🌸','💀','💀']), revealed: {}, turn: 'A' },
+      door4: null
+    });
   }
 
   // ================= 최종 탈출 =================
