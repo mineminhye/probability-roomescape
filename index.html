@@ -168,6 +168,60 @@
     .btn-danger { background: #ff4757; color: white; border: none; }
     .btn-edit { background: #eccc68; color: black; border: none; }
 
+    /* ===== 실시간 3·4번 문 UI ===== */
+    .turn-banner {
+      font-size: clamp(15px, 4.5vw, 19px); font-weight: bold; padding: 10px;
+      border-radius: 10px; margin: 10px 0; border: 2px solid #d4af37;
+    }
+    .turn-mine { background: #2d5a27; color: #eaffea; }
+    .turn-theirs { background: #3d2017; color: #ffd7a0; }
+
+    .spinner {
+      width: 46px; height: 46px; margin: 10px auto; border-radius: 50%;
+      border: 5px solid #5c3a1d; border-top-color: #ffd700;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .map-wrap { margin: 8px 0; }
+    .map-img { width: 100%; max-width: 520px; border-radius: 10px; display: block; margin: 0 auto 12px auto; border: 2px solid #8b5a2b; }
+
+    .grid-wrap {
+      display: grid; gap: 4px; max-width: 420px; margin: 0 auto;
+      grid-template-columns: 44px 1fr; grid-template-rows: 40px 1fr;
+    }
+    .grid-corner { grid-column: 1; grid-row: 1; }
+    .col-headers { grid-column: 2; grid-row: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .row-headers { grid-column: 1; grid-row: 2; display: grid; grid-template-rows: repeat(3, 1fr); gap: 6px; }
+    .treasure-grid { grid-column: 2; grid-row: 2; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); gap: 6px; }
+
+    .hdr-btn {
+      border: 2px solid #8b5a2b; border-radius: 8px; background: #23120d; color: #ffd700;
+      font-weight: bold; font-size: clamp(15px, 4.5vw, 20px); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0;
+    }
+    .hdr-btn.active { background: #b8860b; color: #000; border-color: #ffd700; }
+    .hdr-btn.picked { background: var(--gold-color); color: #000; border-color: #fff; }
+    .hdr-btn:disabled { opacity: 0.5; cursor: default; }
+
+    .t-cell {
+      border: 1px solid #5c3a1d; border-radius: 6px; background: rgba(20,10,7,0.6);
+      min-height: 44px; display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    .t-cell.row-hl { background: rgba(255,215,0,0.18); }
+    .t-cell.col-hl { background: rgba(255,215,0,0.18); }
+    .t-cell.cross { background: rgba(255,215,0,0.5); }
+
+    .treasure-result { font-size: clamp(18px, 5.5vw, 24px); font-weight: bold; margin: 14px 0; min-height: 30px; }
+    .treasure-result.win { color: #ffd700; }
+    .treasure-result.lose { color: #ff8f8f; }
+    .treasure-box { font-size: 60px; animation: rise 0.6s ease-out; }
+    @keyframes rise {
+      0% { transform: translateY(30px) scale(0.4); opacity: 0; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
     /* 아주 좁은 폰 */
     @media (max-width: 380px) {
       .role-select-box { flex-direction: column; }
@@ -274,55 +328,60 @@
       <div class="card-grid" id="heartCardGrid"></div>
     </div>
 
-    <!-- 3번 문: 스컬 -->
+    <!-- 대기 화면: 짝 준비 대기 -->
+    <div class="screen" id="screenWaiting">
+      <div class="guide-box">
+        <div class="guide-title">⏳ 짝을 기다리는 중…</div>
+        <div class="guide-desc">
+          3번 문부터는 <span class="guide-highlight">짝과 함께 실시간으로</span> 진행합니다.<br>
+          두 사람 모두 2번 문을 통과하면 자동으로 시작됩니다.
+        </div>
+      </div>
+      <div id="waitStatus" style="font-size:18px; color:#ffd700; font-weight:bold; margin:20px 0;"></div>
+      <div class="spinner"></div>
+    </div>
+
+    <!-- 3번 문: 스컬 (실시간 턴제) -->
     <div class="screen" id="screenDoor3">
       <div id="roleBadge3" class="role-badge"></div>
       <div class="guide-box">
-        <div class="guide-title">🔓 3번 문: 스컬 (Skull)</div>
-        <div class="guide-desc" id="skullGuideText"></div>
-      </div>
-      
-      <div class="card-grid" id="skullCardGrid"></div>
-
-      <div id="skullAnalystBox" style="display:none; background:rgba(0,0,0,0.8); border:1px solid #ffd700; padding:15px; border-radius:10px; font-size:15px; text-align:left;">
-        <p style="color:#ffd700; font-weight:bold; font-size:16px; margin:0 0 10px 0;">📊 B 역할: 확률 분석 미션</p>
-        <p>전체 6장의 카드 중 꽃(🌸) 4장, 해골(💀) 2장이 들어있습니다.</p>
-        <p style="color:#ffd700; font-weight:bold;">Q. 6장의 카드 중 첫 번째 카드로 해골(💀)을 뽑을 확률은 몇 %일까요?</p>
-        <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;">
-          <input type="number" inputmode="decimal" id="inputSkullProb" placeholder="확률(%) 입력 (예: 33)" style="margin:0; flex:1 1 160px;">
-          <button class="btn-primary" style="margin:0; width:100px;" onclick="checkDoor3Analyst()">제출</button>
+        <div class="guide-title">🔓 3번 문: 스컬 (Skull) — 실시간 협력</div>
+        <div class="guide-desc">
+          • 6장 중 <span class="guide-highlight">꽃(🌸) 4장, 해골(💀) 2장</span>이 섞여 있습니다.<br>
+          • A와 B가 <span class="guide-highlight">번갈아 한 장씩</span> 뒤집어, 함께 <span class="guide-highlight">꽃 2장</span>을 찾으면 통과!<br>
+          • 해골을 뒤집으면 하트가 깎이고 카드가 다시 섞입니다.
         </div>
       </div>
+      <div class="turn-banner" id="turnBanner3"></div>
+      <div class="card-grid" id="skullCardGrid"></div>
     </div>
 
-    <!-- 4번 문: 변형 차오차오 -->
+    <!-- 4번 문: 격자 보물찾기 (곱의 법칙) -->
     <div class="screen" id="screenDoor4">
       <div id="roleBadge4" class="role-badge"></div>
       <div class="guide-box">
-        <div class="guide-title">🔓 4번 문: 변형 차오차오</div>
+        <div class="guide-title">🔓 4번 문: 보물섬 지도 — 곱의 법칙</div>
         <div class="guide-desc">
-          • <strong>상황:</strong> 내 주사위 결과를 확인하고 짝에게 외치세요!<br>
-          • <strong>짝 협력 미션:</strong> 짝이 나에게 외친 외침이 <span class="guide-highlight">진실인지 거짓인지</span> 맞춰서 판정하세요!
+          • <span class="guide-highlight">A는 행(A·B·C)</span>, <span class="guide-highlight">B는 열(1·2·3·4)</span>을 담당합니다.<br>
+          • A가 먼저 행을, B가 다음으로 열을 고릅니다. 두 좌표가 만나는 칸이 <span class="guide-highlight">보물칸</span>이면 성공!
         </div>
       </div>
 
-      <div class="door4-row">
-        <div class="door4-cell">
-          <div style="font-size: 15px; color: #ffd700; font-weight: bold; margin-bottom: 6px;">내 주사위 결과</div>
-          <div style="font-size: 18px; font-weight: bold; color: #fff;" id="myDiceResult">?</div>
-        </div>
+      <div class="turn-banner" id="turnBanner4"></div>
 
-        <div class="door4-cell">
-          <div style="font-size: 15px; color: #ffd700; font-weight: bold; margin-bottom: 6px;">짝의 진술 판정</div>
-          <select id="selectPairTruth" style="font-size: 15px; margin: 0;">
-            <option value="">짝의 진실/거짓 선택</option>
-            <option value="진실">진실을 말함</option>
-            <option value="거짓">거짓을 말함</option>
-          </select>
+      <div id="treasureLog" style="font-size:14px; color:#ffd700; margin:6px 0 12px 0;"></div>
+
+      <div class="map-wrap">
+        <img src="map.png" alt="보물섬 지도" class="map-img" onerror="this.style.display='none'">
+        <div class="grid-wrap">
+          <div class="grid-corner"></div>
+          <div class="col-headers" id="colHeaders"></div>
+          <div class="row-headers" id="rowHeaders"></div>
+          <div class="treasure-grid" id="treasureGrid"></div>
         </div>
       </div>
 
-      <button class="btn-primary" onclick="checkDoor4()">판정 제출하기</button>
+      <div id="treasureResult" class="treasure-result"></div>
     </div>
 
     <!-- 최종 탈출 성공 화면 -->
@@ -404,16 +463,25 @@
     role: 'A',
     maxHearts: 4,
     hearts: 4,
-    doorHearts: { 1: 4, 2: 8, 3: 8, 4: 8 },
+    doorHearts: { 1: 4, 2: 8 },
     currentDoor: 1,
     totalAttempts: 0,
     startTime: null,
     door2Cards: [],
-    door2Revealed: [],
-    door3Cards: [],
-    door3Revealed: [],
-    door4RealMy: '진실'
+    door2Revealed: []
   };
+
+  // ===== 실시간 동기화(3·4번 문) 관련 전역 =====
+  let roomKey = null;
+  let roomRef = null;
+  let roomState = null;
+  let myProgress = 'door1';        // door1 → door2 → waiting → door3 → door4 → cleared
+  let isHost = false;              // A가 방장(공유 상태 초기화 담당)
+  let handledResetToken = 0;
+  let handledResultToken = 0;
+  let resultBusy = false;
+  let savedResult = false;
+  const SHARED_HEARTS = 8;         // 3·4번 문 공용 하트
 
   window.addEventListener('load', () => {
     let checkDb = setInterval(() => {
@@ -607,9 +675,11 @@
 
   function enterDoor(n) {
     gameState.currentDoor = n;
-    gameState.maxHearts = gameState.doorHearts[n];
-    gameState.hearts = gameState.doorHearts[n];
-    updateHeartsDisplay();
+    if (gameState.doorHearts[n] != null) {
+      gameState.maxHearts = gameState.doorHearts[n];
+      gameState.hearts = gameState.doorHearts[n];
+      updateHeartsDisplay();
+    }
   }
 
   function handleFail() {
@@ -665,8 +735,17 @@
     document.getElementById('userInfoDisplay').innerText = `${schoolName} ${className} ${group} [학생 ${gameState.role}]`;
     document.getElementById('statusBar').style.display = 'flex';
 
+    // 방 = 모둠. (한 모둠 = A·B 2명) 실시간 동기화의 열쇠.
+    isHost = (gameState.role === 'A');
+    roomKey = sanitizeKey(`${schoolName}_${className}_${group}`);
+    roomRef = window.dbRef(window.db, `rooms/${roomKey}`);
+    // 내 입장 표시 + 방 구독 시작
+    window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/players`), { [gameState.role]: true });
+    window.dbOnValue(roomRef, onRoomUpdate);
+
     gameState.totalAttempts = 0;
     gameState.startTime = Date.now();
+    myProgress = 'door1';
     enterDoor(1);
 
     updateRoleBadges();
@@ -675,6 +754,10 @@
     playDoorOpenAnimation(() => {
       showScreen('screenDoor1');
     });
+  }
+
+  function sanitizeKey(s) {
+    return s.replace(/[.#$/\[\]\s]+/g, '_');
   }
 
   function initDoor1RoleUI() {
@@ -748,101 +831,346 @@
       setTimeout(() => { handleFail(); initDoor2(); }, 300);
     } else {
       setTimeout(() => {
-        alert("하트(♥) 발견 성공! 문이 열립니다.");
+        alert("하트(♥) 발견 성공! 짝을 기다립니다.");
         playDoorOpenAnimation(() => {
-          enterDoor(3);
-          initDoor3();
-          showScreen('screenDoor3');
+          enterWaiting();
         });
       }, 300);
     }
   }
 
-  // 3번 문
-  function initDoor3() {
-    gameState.door3Cards = ['🌸', '🌸', '🌸', '🌸', '💀', '💀'].sort(() => Math.random() - 0.5);
-    gameState.door3Revealed = [];
+  // ============================================================
+  //  실시간 동기화 영역 (대기실 → 3번 문 → 4번 문)
+  // ============================================================
 
-    const guideText = document.getElementById('skullGuideText');
-    const grid = document.getElementById('skullCardGrid');
-    const analystBox = document.getElementById('skullAnalystBox');
+  function enterWaiting() {
+    myProgress = 'waiting';
+    window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/ready`), { [gameState.role]: true });
+    showScreen('screenWaiting');
+    renderWaiting();
+  }
 
-    if (gameState.role === 'A') {
-      guideText.innerHTML = "• <strong>A 역할:</strong> 뒤집힌 6장 중 <span class='guide-highlight'>꽃(🌸) 2개</span>를 찾아내세요! B의 확률 조언을 들으세요.";
-      grid.style.display = 'flex';
-      analystBox.style.display = 'none';
+  function bothReady() {
+    return roomState && roomState.ready && roomState.ready.A && roomState.ready.B;
+  }
+
+  function renderWaiting() {
+    const rA = roomState && roomState.ready && roomState.ready.A;
+    const rB = roomState && roomState.ready && roomState.ready.B;
+    document.getElementById('waitStatus').innerHTML =
+      `학생 A: ${rA ? '✅ 준비완료' : '⏳ 진행 중'}<br>학생 B: ${rB ? '✅ 준비완료' : '⏳ 진행 중'}`;
+  }
+
+  function shuffled(arr) { return arr.slice().sort(() => Math.random() - 0.5); }
+  function rnd(n) { return Math.floor(Math.random() * n); }
+
+  // ---- 방 상태 구독 핸들러 (모든 실시간 변화의 중심) ----
+  function onRoomUpdate(snapshot) {
+    roomState = snapshot.val() || {};
+
+    // 3·4번 문 단계에서는 공유 하트를 표시
+    if ((myProgress === 'door3' || myProgress === 'door4') && roomState.hearts != null) {
+      gameState.maxHearts = SHARED_HEARTS;
+      gameState.hearts = roomState.hearts;
+      updateHeartsDisplay();
+    }
+
+    // 공용 하트 리셋 안내 (양쪽 1회씩)
+    if (roomState.resetToken && roomState.resetToken !== handledResetToken) {
+      handledResetToken = roomState.resetToken;
+      alert(roomState.resetMsg || '하트를 모두 소모했습니다! 이 문을 다시 시작합니다.');
+    }
+
+    const phase = roomState.phase;
+
+    // 아직 로컬 1·2번 문을 하는 중이면 관여하지 않음
+    if (myProgress === 'door1' || myProgress === 'door2') return;
+
+    if (myProgress === 'waiting') {
+      renderWaiting();
+      if (!phase && isHost && bothReady()) {
+        initSharedDoor3();
+        return;
+      }
+      if (phase === 'door3') { myProgress = 'door3'; showScreen('screenDoor3'); }
+      else if (phase === 'door4') { myProgress = 'door4'; showScreen('screenDoor4'); }
+    }
+
+    if (phase === 'door3' && (myProgress === 'door3' || myProgress === 'waiting')) {
+      myProgress = 'door3';
+      if (document.getElementById('screenDoor3').classList.contains('active') === false) showScreen('screenDoor3');
       renderDoor3();
-    } else {
-      guideText.innerHTML = "• <strong>B 역할 (확률 분석가):</strong> 아래 확률 문제를 계산하여 정답을 제출하세요!";
-      grid.style.display = 'none';
-      analystBox.style.display = 'block';
+    } else if (phase === 'door4' && myProgress !== 'cleared') {
+      if (myProgress !== 'door4') { myProgress = 'door4'; showScreen('screenDoor4'); }
+      renderDoor4();
+    } else if (phase === 'cleared' && myProgress !== 'cleared') {
+      myProgress = 'cleared';
+      finishGame();
     }
   }
 
-  function renderDoor3() {
-    const grid = document.getElementById('skullCardGrid');
-    grid.innerHTML = '';
-    gameState.door3Cards.forEach((card, idx) => {
-      const cardEl = document.createElement('div');
-      cardEl.className = 'card';
-      cardEl.innerText = gameState.door3Revealed.includes(idx) ? card : '?';
-      cardEl.onclick = () => selectDoor3Card(idx);
-      grid.appendChild(cardEl);
+  // ================= 3번 문: 스컬 (실시간 턴제) =================
+  function initSharedDoor3() {
+    window.dbUpdate(roomRef, {
+      phase: 'door3',
+      hearts: SHARED_HEARTS,
+      door3: {
+        cards: shuffled(['🌸','🌸','🌸','🌸','💀','💀']),
+        revealed: {},
+        turn: 'A'
+      }
     });
   }
 
-  function selectDoor3Card(idx) {
-    if (gameState.door3Revealed.includes(idx)) return;
-    gameState.door3Revealed.push(idx);
-    renderDoor3();
+  function renderDoor3() {
+    const d = roomState.door3;
+    if (!d) return;
+    const myTurn = (d.turn === gameState.role);
+    const banner = document.getElementById('turnBanner3');
+    banner.className = 'turn-banner ' + (myTurn ? 'turn-mine' : 'turn-theirs');
+    banner.innerText = myTurn ? '🎯 내 차례! 카드 한 장을 뒤집으세요.' : `⏳ 짝(${d.turn})의 차례입니다…`;
 
-    const picked = gameState.door3Cards[idx];
+    const grid = document.getElementById('skullCardGrid');
+    grid.innerHTML = '';
+    const cards = d.cards || [];
+    const revealed = d.revealed || {};
+    cards.forEach((card, idx) => {
+      const el = document.createElement('div');
+      el.className = 'card';
+      const isRev = revealed[idx];
+      el.innerText = isRev ? card : '?';
+      if (myTurn && !isRev) {
+        el.onclick = () => flipDoor3Card(idx);
+      } else {
+        el.style.cursor = 'default';
+      }
+      grid.appendChild(el);
+    });
+  }
+
+  function flipDoor3Card(idx) {
+    const d = roomState.door3;
+    if (!d || d.turn !== gameState.role) return;         // 내 차례 아니면 무시
+    const revealed = Object.assign({}, d.revealed || {});
+    if (revealed[idx]) return;
+    revealed[idx] = true;
+
+    const picked = (d.cards || [])[idx];
+    const other = gameState.role === 'A' ? 'B' : 'A';
+
     if (picked === '💀') {
-      setTimeout(() => { handleFail(); initDoor3(); }, 300);
-    } else if (gameState.door3Revealed.length === 2) {
-      setTimeout(() => {
-        alert("성공! 문이 열립니다.");
-        playDoorOpenAnimation(() => {
-          enterDoor(4);
-          initDoor4();
-          showScreen('screenDoor4');
+      // 해골 → 하트 차감 + 카드 재섞기 + 턴 넘김
+      const nextHearts = (roomState.hearts || SHARED_HEARTS) - 1;
+      if (nextHearts <= 0) {
+        sharedReset('door3', '해골! 하트를 모두 소모했습니다. 3번 문을 다시 시작합니다.');
+      } else {
+        window.dbUpdate(roomRef, {
+          hearts: nextHearts,
+          totalAttempts: (roomState.totalAttempts || 0) + 1,
+          door3: { cards: shuffled(['🌸','🌸','🌸','🌸','💀','💀']), revealed: {}, turn: other }
         });
-      }, 300);
+      }
+      return;
     }
-  }
 
-  // B 확률 채점: 다양한 정답 표기 허용 (33, 33.3, 33.33, 1/3 등)
-  function checkDoor3Analyst() {
-    let val = (document.getElementById('inputSkullProb').value || '').trim().replace('%', '').replace(' ', '');
-    const accepted = ['33', '33.3', '33.33', '1/3'];
-    let ok = accepted.includes(val);
-    // 숫자로 들어온 경우 33.x 근처면 정답 처리
-    const n = parseFloat(val);
-    if (!ok && !isNaN(n) && n >= 33 && n < 34) ok = true;
+    // 꽃 → 지금까지 뒤집힌 꽃 개수 세기
+    let flowers = 0;
+    Object.keys(revealed).forEach(k => { if ((d.cards || [])[k] === '🌸') flowers++; });
 
-    if (ok) {
-      alert("정답입니다! (해골을 뽑을 확률: 2/6 = 약 33.3%) 4번 문으로 이동합니다.");
-      playDoorOpenAnimation(() => {
-        enterDoor(4);
-        initDoor4();
-        showScreen('screenDoor4');
-      });
+    if (flowers >= 2) {
+      // 3번 문 통과 → 4번 문 시작
+      startSharedDoor4();
     } else {
-      alert("틀렸습니다! 6장 중 해골은 2장입니다. (2/6 = ?%)");
-      handleFail();
+      window.dbUpdate(roomRef, {
+        door3: { cards: d.cards, revealed: revealed, turn: other }
+      });
     }
   }
 
-  // 4번 문
-  function initDoor4() {
-    const ciaoFaces = ['1', '2', '3', '4', 'X', 'X'];
-    const myRoll = ciaoFaces[Math.floor(Math.random() * ciaoFaces.length)];
+  // ================= 4번 문: 격자 보물찾기 (곱의 법칙) =================
+  const ROW_LABELS = ['A', 'B', 'C'];
+  const COL_LABELS = ['1', '2', '3', '4'];
 
-    gameState.door4RealMy = (myRoll !== 'X') ? '진실' : '거짓';
-    const sayNum = (myRoll !== 'X') ? myRoll : Math.floor(Math.random() * 4) + 1;
+  function startSharedDoor4() {
+    window.dbUpdate(roomRef, {
+      phase: 'door4',
+      hearts: SHARED_HEARTS,
+      door4: newDoor4Round(0, 0)
+    });
+  }
 
-    document.getElementById('myDiceResult').innerText = `[ ${myRoll} ] ➔ 짝에게 "${sayNum}" 외치기!`;
-    document.getElementById('selectPairTruth').value = "";
+  function newDoor4Round(tries, success) {
+    return {
+      treasureRow: rnd(3),
+      treasureCol: rnd(4),
+      turn: 'A',
+      aPick: null,
+      bPick: null,
+      result: null,
+      resultToken: 0,
+      tries: tries,
+      success: success
+    };
+  }
+
+  function renderDoor4() {
+    const d = roomState.door4;
+    if (!d) return;
+
+    // 로그
+    document.getElementById('treasureLog').innerHTML =
+      `🔎 시도 ${d.tries || 0}회 · 성공 ${d.success || 0}회 &nbsp;|&nbsp; 보물 찾을 확률 = 1/3 × 1/4 = <b>1/12</b>`;
+
+    // 턴 배너
+    const banner = document.getElementById('turnBanner4');
+    let phaseMy = false, msg = '';
+    if (d.aPick == null) {
+      phaseMy = (gameState.role === 'A');
+      msg = phaseMy ? '🎯 내 차례! 행(A·B·C)을 고르세요.' : '⏳ 짝 A가 행을 고르는 중…';
+    } else if (d.bPick == null) {
+      phaseMy = (gameState.role === 'B');
+      msg = phaseMy ? '🎯 내 차례! 열(1·2·3·4)을 고르세요.' : '⏳ 짝 B가 열을 고르는 중…';
+    } else {
+      msg = '판정 중…';
+    }
+    banner.className = 'turn-banner ' + (phaseMy ? 'turn-mine' : 'turn-theirs');
+    banner.innerText = msg;
+
+    // 열 헤더 (B가 aPick 이후 자기 차례에 클릭)
+    const colH = document.getElementById('colHeaders');
+    colH.innerHTML = '';
+    COL_LABELS.forEach((lab, c) => {
+      const b = document.createElement('button');
+      b.className = 'hdr-btn' + (d.bPick === c ? ' picked' : '');
+      b.innerText = lab;
+      const bCanPick = (gameState.role === 'B' && d.aPick != null && d.bPick == null);
+      if (bCanPick) { b.classList.add('active'); b.onclick = () => pickCol(c); }
+      else { b.disabled = true; }
+      colH.appendChild(b);
+    });
+
+    // 행 헤더 (A가 자기 차례에 클릭)
+    const rowH = document.getElementById('rowHeaders');
+    rowH.innerHTML = '';
+    ROW_LABELS.forEach((lab, r) => {
+      const b = document.createElement('button');
+      b.className = 'hdr-btn' + (d.aPick === r ? ' picked' : '');
+      b.innerText = lab;
+      const aCanPick = (gameState.role === 'A' && d.aPick == null);
+      if (aCanPick) { b.classList.add('active'); b.onclick = () => pickRow(r); }
+      else { b.disabled = true; }
+      rowH.appendChild(b);
+    });
+
+    // 격자 (선택된 행/열 하이라이트)
+    const grid = document.getElementById('treasureGrid');
+    grid.innerHTML = '';
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 4; c++) {
+        const cell = document.createElement('div');
+        cell.className = 't-cell';
+        if (d.aPick === r) cell.classList.add('row-hl');
+        if (d.bPick === c) cell.classList.add('col-hl');
+        if (d.aPick === r && d.bPick === c) cell.classList.add('cross');
+        grid.appendChild(cell);
+      }
+    }
+
+    // 결과 연출 (양쪽 1회씩)
+    if (d.result && d.resultToken && d.resultToken !== handledResultToken) {
+      handledResultToken = d.resultToken;
+      showTreasureResult(d.result);
+    } else if (!d.result) {
+      document.getElementById('treasureResult').innerHTML = '';
+    }
+  }
+
+  function pickRow(r) {
+    const d = roomState.door4;
+    if (!d || d.aPick != null || gameState.role !== 'A') return;
+    window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`), { aPick: r, turn: 'B' });
+  }
+
+  function pickCol(c) {
+    const d = roomState.door4;
+    if (!d || d.aPick == null || d.bPick != null || gameState.role !== 'B') return;
+
+    const win = (d.aPick === d.treasureRow && c === d.treasureCol);
+    const token = Date.now();
+
+    if (win) {
+      window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`), {
+        bPick: c, result: 'win', resultToken: token,
+        tries: (d.tries || 0) + 1, success: (d.success || 0) + 1
+      });
+      // 성공 → 방장이 최종 통과 처리 (phase=cleared)는 결과 연출 뒤
+      setTimeout(() => { window.dbUpdate(roomRef, { phase: 'cleared' }); }, 1800);
+    } else {
+      const nextHearts = (roomState.hearts || SHARED_HEARTS) - 1;
+      if (nextHearts <= 0) {
+        window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`), {
+          bPick: c, result: 'lose', resultToken: token, tries: (d.tries || 0) + 1
+        });
+        setTimeout(() => sharedReset('door4', '하트를 모두 소모했습니다! 4번 문을 다시 시작합니다.'), 1600);
+      } else {
+        window.dbUpdate(roomRef, { hearts: nextHearts });
+        window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`), {
+          bPick: c, result: 'lose', resultToken: token, tries: (d.tries || 0) + 1
+        });
+        // 실패 → 잠시 후 방장이 새 라운드 시작
+        setTimeout(() => {
+          if (isHost) {
+            window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door4`),
+              newDoor4Round((d.tries || 0) + 1, d.success || 0));
+          }
+        }, 1600);
+      }
+    }
+  }
+
+  function showTreasureResult(result) {
+    const box = document.getElementById('treasureResult');
+    if (result === 'win') {
+      box.className = 'treasure-result win';
+      box.innerHTML = '<div class="treasure-box">💰</div>보물을 발견하였습니다!';
+    } else {
+      box.className = 'treasure-result lose';
+      box.innerHTML = '아니지롱~ 다시 찾아봐!';
+      setTimeout(() => { box.innerHTML = ''; }, 1500);
+    }
+  }
+
+  // 공용 하트 리셋: 해당 문을 다시 시작 (방장이 상태 재설정)
+  function sharedReset(door, msg) {
+    if (!isHost) return;
+    const base = {
+      resetToken: Date.now(),
+      resetMsg: msg,
+      hearts: SHARED_HEARTS
+    };
+    if (door === 'door3') {
+      base.door3 = { cards: shuffled(['🌸','🌸','🌸','🌸','💀','💀']), revealed: {}, turn: 'A' };
+    } else {
+      base.door4 = newDoor4Round(roomState.door4 ? (roomState.door4.tries || 0) : 0,
+                                 roomState.door4 ? (roomState.door4.success || 0) : 0);
+    }
+    window.dbUpdate(roomRef, base);
+  }
+
+  // ================= 최종 탈출 =================
+  function finishGame() {
+    const elapsedMs = gameState.startTime ? (Date.now() - gameState.startTime) : 0;
+    const elapsedText = formatElapsed(elapsedMs);
+
+    document.getElementById('clearSummary').innerText =
+      `${gameState.userInfo.schoolName} ${gameState.userInfo.className} ${gameState.userInfo.group} [학생 ${gameState.userInfo.role}]\n탈출 완료! ⏱ ${elapsedText}`;
+
+    // 방장(A)만 1회 저장 (짝당 1건)
+    if (isHost && !savedResult) {
+      savedResult = true;
+      saveResultToFirebase(elapsedMs, elapsedText);
+    }
+    showScreen('screenClear');
   }
 
   function formatElapsed(ms) {
@@ -852,27 +1180,15 @@
     return `${min}분 ${sec}초`;
   }
 
-  function checkDoor4() {
-    const pairTruth = document.getElementById('selectPairTruth').value;
-    if (!pairTruth) { alert("짝의 외침이 진실인지 거짓인지 선택해 주세요!"); return; }
-
-    const elapsedMs = gameState.startTime ? (Date.now() - gameState.startTime) : 0;
-    const elapsedText = formatElapsed(elapsedMs);
-
-    alert(`짝 판정 제출 완료! 최종 탈출에 성공하셨습니다! (소요 시간: ${elapsedText})`);
-    document.getElementById('clearSummary').innerText =
-      `${gameState.userInfo.schoolName} ${gameState.userInfo.className} ${gameState.userInfo.group} [학생 ${gameState.userInfo.role}]\n탈출 완료! ⏱ ${elapsedText}`;
-
-    saveResultToFirebase(elapsedMs, elapsedText);
-    showScreen('screenClear');
-  }
-
   function saveResultToFirebase(elapsedMs, elapsedText) {
     const resultsRef = window.dbRef(window.db, 'results');
     window.dbPush(resultsRef, {
-      ...gameState.userInfo,
-      remainingHearts: gameState.hearts,
-      totalAttempts: gameState.totalAttempts,
+      schoolName: gameState.userInfo.schoolName,
+      className: gameState.userInfo.className,
+      group: gameState.userInfo.group,
+      role: '짝(A+B)',
+      remainingHearts: roomState && roomState.hearts != null ? roomState.hearts : SHARED_HEARTS,
+      totalAttempts: roomState && roomState.totalAttempts ? roomState.totalAttempts : 0,
       elapsedMs: elapsedMs,
       elapsedText: elapsedText,
       timestamp: new Date().toLocaleString()
