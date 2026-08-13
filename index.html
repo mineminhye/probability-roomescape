@@ -175,6 +175,7 @@
     }
     .turn-mine { background: #2d5a27; color: #eaffea; }
     .turn-theirs { background: #3d2017; color: #ffd7a0; }
+    .turn-skull { background: #5a2727; color: #ffd7d7; }
 
     .spinner {
       width: 46px; height: 46px; margin: 10px auto; border-radius: 50%;
@@ -267,7 +268,7 @@
     <div id="userInfoDisplay"></div>
     <div class="hearts" id="heartsDisplay"></div>
   </div>
-  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v9-sync</div>
+  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v10-sync</div>
 
   <div class="content-area">
     <!-- 0. 시작 화면 -->
@@ -367,8 +368,8 @@
         <div class="guide-title">🔓 3번 문: 스컬 (Skull) — 실시간 협력</div>
         <div class="guide-desc">
           • 6장 중 <span class="guide-highlight">꽃(🌸) 4장, 해골(💀) 2장</span>이 섞여 있습니다.<br>
-          • A와 B가 <span class="guide-highlight">번갈아 한 장씩</span> 뒤집어, 함께 <span class="guide-highlight">꽃 2장</span>을 찾으면 통과!<br>
-          • 해골을 뒤집으면 하트가 깎이고 카드가 다시 섞입니다.
+          • <span class="guide-highlight">A가 꽃을 뒤집으면 B에게 차례</span>가 넘어가고, <span class="guide-highlight">B도 이어서 꽃을 뒤집으면 통과!</span><br>
+          • 누구든 <span class="guide-highlight">해골을 뒤집으면 즉시 실패</span> → 하트 차감 후 처음(A)부터 다시.
         </div>
       </div>
       <div class="turn-banner" id="turnBanner3"></div>
@@ -528,6 +529,7 @@
   let handledResultToken = 0;
   let heartResetBusy = false;
   let door3InitSent = false;
+  let handledSkullToken = 0;
   let resultBusy = false;
   let savedResult = false;
   const SHARED_HEARTS = 8;         // 3·4번 문 공용 하트
@@ -788,7 +790,7 @@
     isHost = (gameState.role === 'A');
     roomKey = sanitizeKey(`${schoolName}_${className}_${group}`);
     roomRef = window.dbRef(window.db, `rooms/${roomKey}`);
-    dbg('[v9] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
+    dbg('[v10] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
 
     // 방장(A)은 시작 시 이전 판 게임 상태만 청소한다 (ready는 건드리지 않음!)
     if (isHost) {
@@ -1088,10 +1090,17 @@
   function renderDoor3() {
     const d = roomState.door3;
     if (!d) return;
+    const skullPhase = (d.turn === 'none');    // 해골 표시 중
     const myTurn = (d.turn === gameState.role);
     const banner = document.getElementById('turnBanner3');
-    banner.className = 'turn-banner ' + (myTurn ? 'turn-mine' : 'turn-theirs');
-    banner.innerText = myTurn ? '🎯 내 차례! 카드 한 장을 뒤집으세요.' : `⏳ 짝(${d.turn})의 차례입니다…`;
+
+    if (skullPhase) {
+      banner.className = 'turn-banner turn-skull';
+      banner.innerText = '💀 해골을 선택했군요! 다시 도전하세요…';
+    } else {
+      banner.className = 'turn-banner ' + (myTurn ? 'turn-mine' : 'turn-theirs');
+      banner.innerText = myTurn ? '🎯 내 차례! 카드 한 장을 뒤집으세요.' : `⏳ 짝(${d.turn})의 차례입니다…`;
+    }
 
     const grid = document.getElementById('skullCardGrid');
     grid.innerHTML = '';
@@ -1102,7 +1111,8 @@
       el.className = 'card';
       const isRev = revealed[idx];
       el.innerText = isRev ? card : '?';
-      if (myTurn && !isRev) {
+      if (isRev && card === '💀') el.style.color = '#ff6b6b';
+      if (myTurn && !isRev && !skullPhase) {
         el.onclick = () => flipDoor3Card(idx);
       } else {
         el.style.cursor = 'default';
@@ -1122,13 +1132,21 @@
     const other = gameState.role === 'A' ? 'B' : 'A';
 
     if (picked === '💀') {
-      // 해골 → 하트 차감 + 카드 재섞기 + 턴 넘김 (하트 0이면 방장이 3번 문부터 리셋)
+      // 해골 → 즉시 실패. 해골을 잠깐 보여준 뒤 하트 차감 + 재섞기 + A부터 다시
       const nextHearts = (roomState.hearts || SHARED_HEARTS) - 1;
       window.dbUpdate(roomRef, {
         hearts: nextHearts,
         totalAttempts: (roomState.totalAttempts || 0) + 1,
-        door3: { cards: shuffled(['🌸','🌸','🌸','🌸','💀','💀']), revealed: {}, turn: other }
+        door3: { cards: d.cards, revealed: revealed, turn: 'none', skullToken: Date.now() }
       });
+      if (nextHearts > 0) {
+        // 뒤집은 사람이 잠시 후 새 판 시작 (A부터)
+        setTimeout(() => {
+          window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/door3`),
+            { cards: shuffled(['🌸','🌸','🌸','🌸','💀','💀']), revealed: {}, turn: 'A', skullToken: 0 });
+        }, 1800);
+      }
+      // 하트 0이면 방장 워치독이 3번 문부터 리셋
       return;
     }
 
