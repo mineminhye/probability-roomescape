@@ -186,14 +186,13 @@
     /* ===== 4번 문: 지도 위 오버레이 격자 ===== */
     .map-overlay-wrap {
       position: relative; width: 100%; max-width: 560px; margin: 8px auto;
-      aspect-ratio: 1440 / 1080;   /* 지도 원본 비율 */
+      display: block; line-height: 0;
     }
     .map-full {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      object-fit: contain; border-radius: 10px;
+      display: block; width: 100%; height: auto; border-radius: 10px;
     }
-    /* 지도가 없을 때 배경 대체 */
-    .map-overlay-wrap.no-map { background: #1a0d09; border: 2px solid #8b5a2b; border-radius: 10px; }
+    /* 지도가 없을 때 배경 대체 (16:12 비율 유지) */
+    .map-overlay-wrap.no-map { background: #1a0d09; border: 2px solid #8b5a2b; border-radius: 10px; aspect-ratio: 1440 / 1080; }
     .map-overlay-wrap.no-map .map-full { display: none; }
 
     /* 격자 영역: 지도 안쪽 12칸 위치 (가로 14~93%, 세로 16~90%) */
@@ -203,17 +202,19 @@
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       grid-template-rows: repeat(3, 1fr);
+      line-height: normal;
     }
     .t-cell {
       border: 1px solid transparent; cursor: default;
       display: flex; align-items: center; justify-content: center;
       font-size: clamp(20px, 6vw, 30px);
     }
-    .t-cell.row-hl { background: rgba(255,215,0,0.30); }
-    .t-cell.col-hl { background: rgba(255,215,0,0.30); }
-    .t-cell.cross { background: rgba(255,80,80,0.45); }
-    .t-cell.pickable { cursor: pointer; background: rgba(255,215,0,0.12); border: 1px dashed rgba(255,215,0,0.5); }
-    .t-cell.pickable:hover { background: rgba(255,215,0,0.28); }
+    /* 행(A)=하늘색, 열(B)=분홍색, 겹침=연보라 */
+    .t-cell.row-hl { background: rgba(80,180,255,0.40); }
+    .t-cell.col-hl { background: rgba(255,120,200,0.40); }
+    .t-cell.cross { background: rgba(190,130,255,0.60); }
+    .t-cell.pickable { cursor: pointer; background: rgba(255,255,255,0.10); border: 1px dashed rgba(255,255,255,0.55); }
+    .t-cell.pickable:hover { background: rgba(255,255,255,0.25); }
 
     .treasure-result { font-size: clamp(18px, 5.5vw, 24px); font-weight: bold; margin: 14px 0; min-height: 30px; }
     .treasure-result.win { color: #ffd700; }
@@ -266,7 +267,7 @@
     <div id="userInfoDisplay"></div>
     <div class="hearts" id="heartsDisplay"></div>
   </div>
-  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v8-sync</div>
+  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v9-sync</div>
 
   <div class="content-area">
     <!-- 0. 시작 화면 -->
@@ -787,7 +788,7 @@
     isHost = (gameState.role === 'A');
     roomKey = sanitizeKey(`${schoolName}_${className}_${group}`);
     roomRef = window.dbRef(window.db, `rooms/${roomKey}`);
-    dbg('[v8] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
+    dbg('[v9] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
 
     // 방장(A)은 시작 시 이전 판 게임 상태만 청소한다 (ready는 건드리지 않음!)
     if (isHost) {
@@ -1192,8 +1193,8 @@
       msg = '판정 중…';
     }
     banner.className = 'turn-banner ' + (phaseMy ? 'turn-mine' : 'turn-theirs');
-    banner.innerText = phaseMy && d.aPick == null ? '🎯 내 차례! 지도에서 가로줄(행)을 탭하세요.'
-      : phaseMy && d.bPick == null ? '🎯 내 차례! 지도에서 세로줄(열)을 탭하세요.'
+    banner.innerText = phaseMy && d.aPick == null ? '🎯 내 차례! 가로줄(행)을 탭하세요 → 하늘색'
+      : phaseMy && d.bPick == null ? '🎯 내 차례! 세로줄(열)을 탭하세요 → 분홍색'
       : msg;
 
     // 지도 위 12칸 오버레이 격자
