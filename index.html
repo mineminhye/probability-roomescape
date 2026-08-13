@@ -456,7 +456,25 @@
   </div>
 </div>
 
+<div id="debugPanel" style="position:fixed; left:0; right:0; bottom:0; max-height:30vh; overflow-y:auto; background:rgba(0,0,0,0.85); color:#7CFC00; font-family:monospace; font-size:12px; padding:8px 10px; z-index:9999; border-top:2px solid #7CFC00; white-space:pre-wrap; line-height:1.4; pointer-events:none;">
+  <b style="color:#ffd700;">🔧 진단 로그</b> (원인 확인용 — 나중에 제거)
+  <button onclick="document.getElementById('debugPanel').style.display='none'" style="float:right; width:auto; padding:2px 8px; margin:0; font-size:11px; pointer-events:auto;">숨기기</button>
+  <div id="debugLog"></div>
+</div>
+
 <script>
+  function dbg(msg, color) {
+    const el = document.getElementById('debugLog');
+    if (!el) return;
+    const time = new Date().toLocaleTimeString();
+    const line = document.createElement('div');
+    if (color) line.style.color = color;
+    line.textContent = `[${time}] ${msg}`;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+    console.log('[DBG]', msg);
+  }
+
   let schoolsData = {};
   let gameState = {
     userInfo: {},
@@ -739,9 +757,13 @@
     isHost = (gameState.role === 'A');
     roomKey = sanitizeKey(`${schoolName}_${className}_${group}`);
     roomRef = window.dbRef(window.db, `rooms/${roomKey}`);
+    dbg('내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
     // 내 입장 표시 + 방 구독 시작
-    window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/players`), { [gameState.role]: true });
+    window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/players`), { [gameState.role]: true })
+      .then(() => dbg('players 쓰기 성공'))
+      .catch((e) => dbg('❌ players 쓰기 실패: ' + e.message, '#ff6b6b'));
     window.dbOnValue(roomRef, onRoomUpdate);
+    dbg('방 구독 시작');
 
     gameState.totalAttempts = 0;
     gameState.startTime = Date.now();
@@ -845,7 +867,10 @@
 
   function enterWaiting() {
     myProgress = 'waiting';
-    window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/ready`), { [gameState.role]: true });
+    dbg('대기실 진입 → ready.' + gameState.role + ' 쓰기 시도', '#ffd700');
+    window.dbUpdate(window.dbRef(window.db, `rooms/${roomKey}/ready`), { [gameState.role]: true })
+      .then(() => dbg('✅ ready.' + gameState.role + ' 쓰기 성공'))
+      .catch((e) => dbg('❌ ready 쓰기 실패: ' + e.message, '#ff6b6b'));
     showScreen('screenWaiting');
     renderWaiting();
   }
@@ -858,6 +883,7 @@
     const rA = roomState && roomState.ready && roomState.ready.A;
     const rB = roomState && roomState.ready && roomState.ready.B;
     document.getElementById('waitStatus').innerHTML =
+      `<div style="font-size:16px; color:#fff; margin-bottom:10px;">나는 <b style="color:#ffd700;">학생 ${gameState.role}</b> 입니다</div>` +
       `학생 A: ${rA ? '✅ 준비완료' : '⏳ 진행 중'}<br>학생 B: ${rB ? '✅ 준비완료' : '⏳ 진행 중'}`;
   }
 
@@ -867,6 +893,8 @@
   // ---- 방 상태 구독 핸들러 (모든 실시간 변화의 중심) ----
   function onRoomUpdate(snapshot) {
     roomState = snapshot.val() || {};
+    const rd = roomState.ready || {};
+    dbg('방 수신: phase=' + (roomState.phase || '없음') + ' / ready A=' + (!!rd.A) + ' B=' + (!!rd.B) + ' / 내진행=' + myProgress);
 
     // 3·4번 문 단계에서는 공유 하트를 표시
     if ((myProgress === 'door3' || myProgress === 'door4') && roomState.hearts != null) {
@@ -886,31 +914,41 @@
     // 아직 로컬 1·2번 문을 하는 중이면 관여하지 않음
     if (myProgress === 'door1' || myProgress === 'door2') return;
 
+    // 대기 중이고 아직 게임이 안 열렸으면, 방장이 둘 다 준비됐는지 확인 후 3번 문 개시
     if (myProgress === 'waiting') {
       renderWaiting();
       if (!phase && isHost && bothReady()) {
         initSharedDoor3();
-        return;
+        // return 하지 않는다 — 아래 phase 처리에서 다음 수신을 자연히 받음
       }
-      if (phase === 'door3') { myProgress = 'door3'; showScreen('screenDoor3'); }
-      else if (phase === 'door4') { myProgress = 'door4'; showScreen('screenDoor4'); }
     }
 
-    if (phase === 'door3' && (myProgress === 'door3' || myProgress === 'waiting')) {
-      myProgress = 'door3';
-      if (document.getElementById('screenDoor3').classList.contains('active') === false) showScreen('screenDoor3');
+    // phase 처리 (방장/비방장 공통) — 어떤 진행 상태든 phase 변화를 반드시 반영
+    if (phase === 'door3') {
+      if (myProgress !== 'door3') {
+        myProgress = 'door3';
+        dbg('▶ 3번 문 입장!', '#7CFC00');
+        showScreen('screenDoor3');
+      }
       renderDoor3();
-    } else if (phase === 'door4' && myProgress !== 'cleared') {
-      if (myProgress !== 'door4') { myProgress = 'door4'; showScreen('screenDoor4'); }
-      renderDoor4();
-    } else if (phase === 'cleared' && myProgress !== 'cleared') {
-      myProgress = 'cleared';
-      finishGame();
+    } else if (phase === 'door4') {
+      if (myProgress !== 'door4' && myProgress !== 'cleared') {
+        myProgress = 'door4';
+        dbg('▶ 4번 문 입장!', '#7CFC00');
+        showScreen('screenDoor4');
+      }
+      if (myProgress === 'door4') renderDoor4();
+    } else if (phase === 'cleared') {
+      if (myProgress !== 'cleared') {
+        myProgress = 'cleared';
+        finishGame();
+      }
     }
   }
 
   // ================= 3번 문: 스컬 (실시간 턴제) =================
   function initSharedDoor3() {
+    dbg('🏠 방장: 둘 다 준비됨 → 3번 문 시작 쓰기', '#ffd700');
     window.dbUpdate(roomRef, {
       phase: 'door3',
       hearts: SHARED_HEARTS,
@@ -919,7 +957,9 @@
         revealed: {},
         turn: 'A'
       }
-    });
+    })
+      .then(() => dbg('✅ 3번 문 시작 쓰기 성공'))
+      .catch((e) => dbg('❌ 3번 문 시작 쓰기 실패: ' + e.message, '#ff6b6b'));
   }
 
   function renderDoor3() {
