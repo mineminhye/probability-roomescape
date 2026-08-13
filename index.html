@@ -268,7 +268,7 @@
     <div id="userInfoDisplay"></div>
     <div class="hearts" id="heartsDisplay"></div>
   </div>
-  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v12-sync</div>
+  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v14-sync</div>
 
   <div class="content-area">
     <!-- 0. 시작 화면 -->
@@ -790,7 +790,7 @@
     isHost = (gameState.role === 'A');
     roomKey = sanitizeKey(`${schoolName}_${className}_${group}`);
     roomRef = window.dbRef(window.db, `rooms/${roomKey}`);
-    dbg('[v12] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
+    dbg('[v14] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
 
     // 방장(A)은 시작 시 이전 판 게임 상태만 청소한다 (ready는 건드리지 않음!)
     if (isHost) {
@@ -1194,7 +1194,7 @@
     const d = roomState.door4;
     if (!d) return;
 
-    // 로그
+    // 로그: 도전 기록만 표시 (확률 공식은 학생이 스스로 발견하도록 미표시)
     document.getElementById('treasureLog').innerHTML =
       `🔎 도전 기록 &nbsp;|&nbsp; 시도 ${d.tries || 0}회 · 보물 발견 ${d.success || 0}회`;
 
