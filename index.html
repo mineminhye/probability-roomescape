@@ -264,7 +264,7 @@
     <div id="userInfoDisplay"></div>
     <div class="hearts" id="heartsDisplay"></div>
   </div>
-  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v6-sync</div>
+  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v7-sync</div>
 
   <div class="content-area">
     <!-- 0. 시작 화면 -->
@@ -790,7 +790,7 @@
     isHost = (gameState.role === 'A');
     roomKey = sanitizeKey(`${schoolName}_${className}_${group}`);
     roomRef = window.dbRef(window.db, `rooms/${roomKey}`);
-    dbg('[v6] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
+    dbg('[v7] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
 
     // 방장(A)은 시작 시 이전 판 게임 상태만 청소한다 (ready는 건드리지 않음!)
     if (isHost) {
@@ -1241,9 +1241,20 @@
     if (d.result && d.resultToken && d.resultToken !== handledResultToken) {
       handledResultToken = d.resultToken;
       showTreasureResult(d.result);
+      if (d.result === 'win') {
+        setTimeout(goToClear, 1900);   // 양쪽 각자 탈출 화면으로
+      }
     } else if (!d.result) {
       document.getElementById('treasureResult').innerHTML = '';
     }
+  }
+
+  // 보물 발견 → 탈출 화면으로 (A·B 각자 독립 실행 — 확실히 둘 다 성공 화면을 봄)
+  function goToClear() {
+    if (myProgress === 'cleared') return;
+    myProgress = 'cleared';
+    if (isHost) window.dbUpdate(roomRef, { phase: 'cleared' });
+    finishGame();
   }
 
   function pickRow(r) {
@@ -1264,8 +1275,7 @@
         bPick: c, result: 'win', resultToken: token,
         tries: (d.tries || 0) + 1, success: (d.success || 0) + 1
       });
-      // 성공 → 방장이 최종 통과 처리 (phase=cleared)는 결과 연출 뒤
-      setTimeout(() => { window.dbUpdate(roomRef, { phase: 'cleared' }); }, 1800);
+      // 탈출 전환은 renderDoor4의 결과 연출에서 양쪽이 각자 처리 (goToClear)
     } else {
       const nextHearts = (roomState.hearts || SHARED_HEARTS) - 1;
       window.dbUpdate(roomRef, { hearts: nextHearts });
