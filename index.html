@@ -268,7 +268,7 @@
     <div id="userInfoDisplay"></div>
     <div class="hearts" id="heartsDisplay"></div>
   </div>
-  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v14-sync</div>
+  <div id="versionBadge" style="position:absolute; top:6px; left:10px; font-size:10px; color:#7CFC00; z-index:200;">v15-sync</div>
 
   <div class="content-area">
     <!-- 0. 시작 화면 -->
@@ -463,6 +463,14 @@
 
       <div id="adminTab2" style="display:none;">
         <h4>📋 학생 탈출 기록 목록</h4>
+        <div style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+          <select id="recFilterSchool" onchange="onRecFilterSchool()" style="flex:1 1 45%; margin:0;">
+            <option value="">전체 학교</option>
+          </select>
+          <select id="recFilterClass" onchange="renderStudentRecords()" style="flex:1 1 45%; margin:0;">
+            <option value="">전체 반</option>
+          </select>
+        </div>
         <div id="recordList" style="max-height: 280px; overflow-y: auto;"></div>
       </div>
     </div>
@@ -790,7 +798,7 @@
     isHost = (gameState.role === 'A');
     roomKey = sanitizeKey(`${schoolName}_${className}_${group}`);
     roomRef = window.dbRef(window.db, `rooms/${roomKey}`);
-    dbg('[v14] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
+    dbg('[v15] 내 역할=' + gameState.role + ' / 방키=' + roomKey, '#ffd700');
 
     // 방장(A)은 시작 시 이전 판 게임 상태만 청소한다 (ready는 건드리지 않음!)
     if (isHost) {
@@ -1497,29 +1505,74 @@
     window.dbRemove(ref); loadAdminGroups();
   }
 
+  let allRecords = [];
+
   function loadStudentRecords() {
     const resultsRef = window.dbRef(window.db, 'results');
     window.dbOnValue(resultsRef, (snapshot) => {
       const records = snapshot.val() || {};
-      const list = document.getElementById('recordList'); list.innerHTML = '';
+      allRecords = Object.keys(records).map(k => records[k]);
+      populateRecFilters();
+      renderStudentRecords();
+    });
+  }
 
-      const arr = Object.keys(records).map(k => records[k]);
-      // 소요 시간이 짧은(빠른) 순으로 정렬
-      arr.sort((a, b) => (a.elapsedMs ?? Infinity) - (b.elapsedMs ?? Infinity));
+  function populateRecFilters() {
+    const schoolSel = document.getElementById('recFilterSchool');
+    if (!schoolSel) return;
+    const prevSchool = schoolSel.value;
+    const schools = [...new Set(allRecords.map(r => r.schoolName).filter(Boolean))].sort();
+    schoolSel.innerHTML = '<option value="">전체 학교</option>';
+    schools.forEach(s => { schoolSel.innerHTML += `<option value="${s}">${s}</option>`; });
+    schoolSel.value = schools.includes(prevSchool) ? prevSchool : '';
+    populateRecClasses();
+  }
 
-      if (arr.length === 0) {
-        list.innerHTML = '<div style="font-size:13px; color:#aaa;">아직 탈출 기록이 없습니다.</div>';
-        return;
-      }
+  function populateRecClasses() {
+    const schoolSel = document.getElementById('recFilterSchool');
+    const classSel = document.getElementById('recFilterClass');
+    if (!classSel) return;
+    const prevClass = classSel.value;
+    const school = schoolSel.value;
+    const classes = [...new Set(
+      allRecords.filter(r => !school || r.schoolName === school).map(r => r.className).filter(Boolean)
+    )].sort();
+    classSel.innerHTML = '<option value="">전체 반</option>';
+    classes.forEach(c => { classSel.innerHTML += `<option value="${c}">${c}</option>`; });
+    classSel.value = classes.includes(prevClass) ? prevClass : '';
+  }
 
-      arr.forEach((r, i) => {
-        const timeText = r.elapsedText || '기록 없음';
-        list.innerHTML += `<div class="list-item" style="flex-direction:column; align-items:flex-start;">
-          <div><strong>${i + 1}위. ${r.schoolName} ${r.className} ${r.group} [학생 ${r.role}]</strong></div>
-          <div style="font-size:13px; color:#ffd700; font-weight:bold;">⏱ 소요 시간: ${timeText}</div>
-          <div style="font-size:12px; color:#aaa;">남은하트: ${r.remainingHearts}개 | 전체시도: ${r.totalAttempts}회 | 완료: ${r.timestamp}</div>
-        </div>`;
-      });
+  function onRecFilterSchool() {
+    populateRecClasses();
+    renderStudentRecords();
+  }
+
+  function renderStudentRecords() {
+    const list = document.getElementById('recordList');
+    if (!list) return;
+    const school = document.getElementById('recFilterSchool').value;
+    const className = document.getElementById('recFilterClass').value;
+
+    let arr = allRecords.filter(r =>
+      (!school || r.schoolName === school) &&
+      (!className || r.className === className)
+    );
+    // 소요 시간이 짧은(빠른) 순으로 정렬
+    arr.sort((a, b) => (a.elapsedMs ?? Infinity) - (b.elapsedMs ?? Infinity));
+
+    list.innerHTML = '';
+    if (arr.length === 0) {
+      list.innerHTML = '<div style="font-size:13px; color:#aaa;">해당 조건의 기록이 없습니다.</div>';
+      return;
+    }
+
+    arr.forEach((r, i) => {
+      const timeText = r.elapsedText || '기록 없음';
+      list.innerHTML += `<div class="list-item" style="flex-direction:column; align-items:flex-start;">
+        <div><strong>${i + 1}위. ${r.schoolName} ${r.className} ${r.group} [학생 ${r.role}]</strong></div>
+        <div style="font-size:13px; color:#ffd700; font-weight:bold;">⏱ 소요 시간: ${timeText}</div>
+        <div style="font-size:12px; color:#aaa;">남은하트: ${r.remainingHearts}개 | 전체시도: ${r.totalAttempts}회 | 완료: ${r.timestamp}</div>
+      </div>`;
     });
   }
 </script>
